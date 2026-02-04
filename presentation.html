@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Искусственный интеллект: настоящее и будущее</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-dark: #1a365d;
+            --primary: #2b6cb0;
+            --primary-light: #4299e1;
+            --primary-lighter: #90cdf4;
+            --white: #ffffff;
+            --gray-light: #f7fafc;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--white);
+            color: var(--primary-dark);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Presentation Container */
+        .presentation {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Slides */
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 80px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+            background: var(--white);
+        }
+
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .slide-content {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .slide-text {
+            opacity: 0;
+            transform: translateX(-30px);
+            transition: opacity 0.6s ease 0.3s, transform 0.6s ease 0.3s;
+        }
+
+        .slide.active .slide-text {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .slide-visual {
+            opacity: 0;
+            transform: translateX(30px);
+            transition: opacity 0.6s ease 0.5s, transform 0.6s ease 0.5s;
+            position: relative;
+        }
+
+        .slide.active .slide-visual {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 3rem;
+            color: var(--primary-dark);
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        h2 {
+            font-size: 2.2rem;
+            color: var(--primary-dark);
+            margin-bottom: 30px;
+            position: relative;
+            padding-bottom: 15px;
+        }
+
+        h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            border-radius: 2px;
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        /* Lists */
+        .points {
+            list-style: none;
+        }
+
+        .points li {
+            padding: 15px 0;
+            padding-left: 35px;
+            position: relative;
+            border-bottom: 1px solid var(--primary-lighter);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .slide.active .points li {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .slide.active .points li:nth-child(1) { transition-delay: 0.4s; }
+        .slide.active .points li:nth-child(2) { transition-delay: 0.5s; }
+        .slide.active .points li:nth-child(3) { transition-delay: 0.6s; }
+        .slide.active .points li:nth-child(4) { transition-delay: 0.7s; }
+        .slide.active .points li:nth-child(5) { transition-delay: 0.8s; }
+
+        .points li:last-child {
+            border-bottom: none;
+        }
+
+        .points li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            background: var(--primary-lighter);
+            border-radius: 50%;
+        }
+
+        .points li::after {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+
+        .point-title {
+            font-weight: 600;
+            color: var(--primary-dark);
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .point-desc {
+            font-size: 0.95rem;
+            color: #4a5568;
+            line-height: 1.5;
+        }
+
+        /* Visual Elements */
+        .slide-image {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(26, 54, 93, 0.15);
+        }
+
+        .icon-box {
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .icon-box::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .icon-box i {
+            font-size: 8rem;
+            color: var(--white);
+            z-index: 1;
+        }
+
+        /* Decorative Elements */
+        .decor-circle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.1;
+        }
+
+        .decor-1 {
+            width: 300px;
+            height: 300px;
+            background: var(--primary);
+            top: -100px;
+            right: -100px;
+        }
+
+        .decor-2 {
+            width: 200px;
+            height: 200px;
+            background: var(--primary-light);
+            bottom: -50px;
+            left: -50px;
+        }
+
+        .decor-line {
+            position: absolute;
+            width: 100px;
+            height: 4px;
+            background: var(--primary-lighter);
+            border-radius: 2px;
+        }
+
+        /* Title Slide Special Styling */
+        .title-slide .slide-content {
+            grid-template-columns: 1fr;
+            text-align: center;
+            justify-items: center;
+        }
+
+        .title-slide h1 {
+            font-size: 4rem;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .title-slide .subtitle {
+            font-size: 1.5rem;
+            max-width: 600px;
+        }
+
+        .title-slide .icon-large {
+            font-size: 10rem;
+            color: var(--primary);
+            margin-bottom: 40px;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
+        }
+
+        .title-slide.active .icon-large {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Conclusion Slide */
+        .conclusion-slide .slide-content {
+            grid-template-columns: 1fr;
+            text-align: center;
+            justify-items: center;
+        }
+
+        .conclusion-slide .points {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            max-width: 900px;
+        }
+
+        .conclusion-slide .points li {
+            padding: 30px;
+            background: var(--gray-light);
+            border-radius: 15px;
+            border: none;
+            text-align: center;
+        }
+
+        .conclusion-slide .points li::before,
+        .conclusion-slide .points li::after {
+            display: none;
+        }
+
+        .conclusion-slide .points li i {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        /* Navigation */
+        .nav-buttons {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            width: 50px;
+            height: 50px;
+            border: none;
+            background: var(--primary);
+            color: var(--white);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-btn:hover {
+            background: var(--primary-dark);
+            transform: scale(1.1);
+        }
+
+        .nav-btn:disabled {
+            background: var(--primary-lighter);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: var(--primary-lighter);
+            z-index: 100;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-dark), var(--primary-light));
+            transition: width 0.4s ease;
+        }
+
+        /* Slide Counter */
+        .slide-counter {
+            position: fixed;
+            bottom: 45px;
+            right: 40px;
+            font-size: 1rem;
+            color: var(--primary);
+            font-weight: 600;
+            z-index: 100;
+        }
+
+        /* Slide Indicators */
+        .slide-indicators {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary-lighter);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .indicator.active {
+            background: var(--primary);
+            transform: scale(1.2);
+        }
+
+        .indicator:hover {
+            background: var(--primary-light);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .slide-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .slide-visual {
+                order: -1;
+            }
+
+            .slide-image, .icon-box {
+                height: 250px;
+            }
+
+            h1 { font-size: 2.5rem; }
+            h2 { font-size: 1.8rem; }
+
+            .title-slide h1 { font-size: 3rem; }
+            .title-slide .icon-large { font-size: 6rem; }
+
+            .conclusion-slide .points {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .slide {
+                padding: 40px 30px;
+            }
+
+            h1 { font-size: 2rem; }
+            h2 { font-size: 1.5rem; }
+
+            .title-slide h1 { font-size: 2.2rem; }
+            .title-slide .subtitle { font-size: 1.1rem; }
+            .title-slide .icon-large { font-size: 5rem; }
+
+            .nav-buttons {
+                bottom: 20px;
+            }
+
+            .slide-indicators {
+                bottom: 80px;
+            }
+
+            .slide-counter {
+                bottom: 25px;
+                right: 20px;
+            }
+
+            .icon-box i {
+                font-size: 5rem;
+            }
+        }
+
+        /* Keyboard hint */
+        .keyboard-hint {
+            position: fixed;
+            bottom: 45px;
+            left: 40px;
+            font-size: 0.85rem;
+            color: var(--primary-light);
+            z-index: 100;
+        }
+
+        .keyboard-hint i {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation">
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <!-- Slide 1: Title -->
+        <div class="slide title-slide active" data-slide="1">
+            <div class="decor-circle decor-1"></div>
+            <div class="decor-circle decor-2"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <i class="fas fa-brain icon-large"></i>
+                    <h1>Искусственный интеллект: настоящее и будущее</h1>
+                    <p class="subtitle">Как ИИ трансформирует наш мир и что нас ждёт впереди</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: What is AI -->
+        <div class="slide" data-slide="2">
+            <div class="decor-circle decor-1"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>Что такое искусственный интеллект?</h2>
+                    <ul class="points">
+                        <li>
+                            <span class="point-title">Определение</span>
+                            <span class="point-desc">Системы, способные выполнять задачи, требующие человеческого интеллекта</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Машинное обучение</span>
+                            <span class="point-desc">Алгоритмы, которые учатся на данных без явного программирования</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Нейронные сети</span>
+                            <span class="point-desc">Архитектуры, вдохновлённые работой человеческого мозга</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Глубокое обучение</span>
+                            <span class="point-desc">Многослойные нейросети для сложных паттернов в данных</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="slide-visual">
+                    <div class="icon-box">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 3: History -->
+        <div class="slide" data-slide="3">
+            <div class="decor-circle decor-2"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>История развития ИИ</h2>
+                    <ul class="points">
+                        <li>
+                            <span class="point-title">1950-е: Рождение ИИ</span>
+                            <span class="point-desc">Тест Тьюринга, Дартмутская конференция — официальное начало</span>
+                        </li>
+                        <li>
+                            <span class="point-title">1960-80-е: Экспертные системы</span>
+                            <span class="point-desc">Первые практические применения, «зима ИИ»</span>
+                        </li>
+                        <li>
+                            <span class="point-title">1997: Deep Blue побеждает Каспарова</span>
+                            <span class="point-desc">Прорыв в игровом ИИ, шахматы покорены</span>
+                        </li>
+                        <li>
+                            <span class="point-title">2010-е: Эра глубокого обучения</span>
+                            <span class="point-desc">ImageNet, AlphaGo, трансформеры и языковые модели</span>
+                        </li>
+                        <li>
+                            <span class="point-title">2020-е: Генеративный ИИ</span>
+                            <span class="point-desc">ChatGPT, DALL-E, Claude — ИИ становится доступным каждому</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="slide-visual">
+                    <div class="icon-box">
+                        <i class="fas fa-clock-rotate-left"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 4: Types of AI -->
+        <div class="slide" data-slide="4">
+            <div class="decor-circle decor-1"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>Типы искусственного интеллекта</h2>
+                    <ul class="points">
+                        <li>
+                            <span class="point-title">Узкий ИИ (ANI)</span>
+                            <span class="point-desc">Специализированные системы для конкретных задач — то, что есть сегодня</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Общий ИИ (AGI)</span>
+                            <span class="point-desc">Универсальный интеллект на уровне человека — цель исследований</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Сверхинтеллект (ASI)</span>
+                            <span class="point-desc">Гипотетический ИИ, превосходящий человека во всём</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Генеративный ИИ</span>
+                            <span class="point-desc">Создание нового контента: текст, изображения, музыка, код</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="slide-visual">
+                    <div class="icon-box">
+                        <i class="fas fa-layer-group"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: AI in Business -->
+        <div class="slide" data-slide="5">
+            <div class="decor-circle decor-2"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>ИИ в бизнесе</h2>
+                    <ul class="points">
+                        <li>
+                            <span class="point-title">Автоматизация процессов</span>
+                            <span class="point-desc">RPA и интеллектуальная автоматизация рутинных операций</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Предиктивная аналитика</span>
+                            <span class="point-desc">Прогнозирование спроса, рисков и поведения клиентов</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Клиентский сервис</span>
+                            <span class="point-desc">Чат-боты, виртуальные ассистенты, персонализация 24/7</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Оптимизация цепочек поставок</span>
+                            <span class="point-desc">Умное управление запасами и логистикой</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Принятие решений</span>
+                            <span class="point-desc">Data-driven подход на основе больших данных</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="slide-visual">
+                    <div class="icon-box">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 6: AI in Daily Life -->
+        <div class="slide" data-slide="6">
+            <div class="decor-circle decor-1"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>ИИ в повседневной жизни</h2>
+                    <ul class="points">
+                        <li>
+                            <span class="point-title">Голосовые ассистенты</span>
+                            <span class="point-desc">Siri, Алиса, Google Assistant — управление голосом</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Рекомендательные системы</span>
+                            <span class="point-desc">Netflix, Spotify, YouTube — персональный контент</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Навигация</span>
+                            <span class="point-desc">Google Maps, Яндекс.Навигатор — оптимальные маршруты</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Умный дом</span>
+                            <span class="point-desc">Автоматизация освещения, климата, безопасности</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Фото и видео</span>
+                            <span class="point-desc">Фильтры, улучшение качества, распознавание лиц</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="slide-visual">
+                    <div class="icon-box">
+                        <i class="fas fa-house-laptop"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 7: AI in Medicine -->
+        <div class="slide" data-slide="7">
+            <div class="decor-circle decor-2"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>ИИ в медицине и науке</h2>
+                    <ul class="points">
+                        <li>
+                            <span class="point-title">Медицинская диагностика</span>
+                            <span class="point-desc">Анализ снимков, выявление рака, патологий с высокой точностью</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Разработка лекарств</span>
+                            <span class="point-desc">Ускорение поиска новых молекул и препаратов в разы</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Персонализированная медицина</span>
+                            <span class="point-desc">Индивидуальные планы лечения на основе генома</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Научные открытия</span>
+                            <span class="point-desc">AlphaFold: предсказание структуры белков — прорыв в биологии</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="slide-visual">
+                    <div class="icon-box">
+                        <i class="fas fa-heartbeat"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: Ethics -->
+        <div class="slide" data-slide="8">
+            <div class="decor-circle decor-1"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>Этические вопросы и вызовы</h2>
+                    <ul class="points">
+                        <li>
+                            <span class="point-title">Приватность данных</span>
+                            <span class="point-desc">Сбор и использование персональной информации</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Предвзятость алгоритмов</span>
+                            <span class="point-desc">Bias в данных приводит к дискриминации в решениях</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Влияние на рынок труда</span>
+                            <span class="point-desc">Автоматизация профессий, необходимость переобучения</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Deepfakes и дезинформация</span>
+                            <span class="point-desc">Создание фейкового контента, угроза доверию</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Ответственность и прозрачность</span>
+                            <span class="point-desc">Кто отвечает за решения ИИ? Проблема «чёрного ящика»</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="slide-visual">
+                    <div class="icon-box">
+                        <i class="fas fa-scale-balanced"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 9: Future -->
+        <div class="slide" data-slide="9">
+            <div class="decor-circle decor-2"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>Будущее искусственного интеллекта</h2>
+                    <ul class="points">
+                        <li>
+                            <span class="point-title">Мультимодальный ИИ</span>
+                            <span class="point-desc">Системы, понимающие текст, изображения, аудио и видео</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Автономные системы</span>
+                            <span class="point-desc">Беспилотный транспорт, роботы, дроны</span>
+                        </li>
+                        <li>
+                            <span class="point-title">ИИ-ассистенты нового поколения</span>
+                            <span class="point-desc">Персональные помощники для всех сфер жизни</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Квантовый ИИ</span>
+                            <span class="point-desc">Квантовые вычисления для сверхсложных задач</span>
+                        </li>
+                        <li>
+                            <span class="point-title">Путь к AGI</span>
+                            <span class="point-desc">Исследования общего искусственного интеллекта</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="slide-visual">
+                    <div class="icon-box">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 10: Conclusion -->
+        <div class="slide conclusion-slide" data-slide="10">
+            <div class="decor-circle decor-1"></div>
+            <div class="decor-circle decor-2"></div>
+            <div class="slide-content">
+                <div class="slide-text">
+                    <h2>Ключевые выводы</h2>
+                    <ul class="points">
+                        <li>
+                            <i class="fas fa-lightbulb"></i>
+                            <span class="point-title">Трансформация</span>
+                            <span class="point-desc">ИИ меняет все отрасли и нашу повседневную жизнь</span>
+                        </li>
+                        <li>
+                            <i class="fas fa-shield-halved"></i>
+                            <span class="point-title">Ответственность</span>
+                            <span class="point-desc">Важно развивать ИИ этично и безопасно</span>
+                        </li>
+                        <li>
+                            <i class="fas fa-graduation-cap"></i>
+                            <span class="point-title">Адаптация</span>
+                            <span class="point-desc">Необходимо учиться работать с ИИ и использовать его возможности</span>
+                        </li>
+                    </ul>
+                    <p class="subtitle" style="margin-top: 40px; font-size: 1.2rem;">
+                        Будущее создаётся сегодня. Станьте его частью!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-buttons">
+        <button class="nav-btn" id="prevBtn" onclick="prevSlide()">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <button class="nav-btn" id="nextBtn" onclick="nextSlide()">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+
+    <!-- Slide Indicators -->
+    <div class="slide-indicators" id="indicators"></div>
+
+    <!-- Slide Counter -->
+    <div class="slide-counter">
+        <span id="currentSlide">1</span> / <span id="totalSlides">10</span>
+    </div>
+
+    <!-- Keyboard Hint -->
+    <div class="keyboard-hint">
+        <i class="fas fa-keyboard"></i> Используйте стрелки для навигации
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 10;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            createIndicators();
+            updateNavigation();
+        });
+
+        // Create slide indicators
+        function createIndicators() {
+            const container = document.getElementById('indicators');
+            for (let i = 1; i <= totalSlides; i++) {
+                const indicator = document.createElement('div');
+                indicator.className = `indicator ${i === 1 ? 'active' : ''}`;
+                indicator.onclick = () => goToSlide(i);
+                container.appendChild(indicator);
+            }
+        }
+
+        // Navigate to next slide
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                goToSlide(currentSlide + 1);
+            }
+        }
+
+        // Navigate to previous slide
+        function prevSlide() {
+            if (currentSlide > 1) {
+                goToSlide(currentSlide - 1);
+            }
+        }
+
+        // Go to specific slide
+        function goToSlide(n) {
+            // Remove active from current slide
+            document.querySelector(`.slide[data-slide="${currentSlide}"]`).classList.remove('active');
+            document.querySelectorAll('.indicator')[currentSlide - 1].classList.remove('active');
+
+            // Update current slide
+            currentSlide = n;
+
+            // Add active to new slide
+            document.querySelector(`.slide[data-slide="${currentSlide}"]`).classList.add('active');
+            document.querySelectorAll('.indicator')[currentSlide - 1].classList.add('active');
+
+            // Update navigation
+            updateNavigation();
+        }
+
+        // Update navigation state
+        function updateNavigation() {
+            // Update buttons
+            document.getElementById('prevBtn').disabled = currentSlide === 1;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides;
+
+            // Update counter
+            document.getElementById('currentSlide').textContent = currentSlide;
+
+            // Update progress bar
+            const progress = ((currentSlide - 1) / (totalSlides - 1)) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                prevSlide();
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                goToSlide(1);
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                goToSlide(totalSlides);
+            }
+        });
+
+        // Touch/swipe support
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            const swipeThreshold = 50;
+            const diff = touchStartX - touchEndX;
+
+            if (diff > swipeThreshold) {
+                nextSlide();
+            } else if (diff < -swipeThreshold) {
+                prevSlide();
+            }
+        }
+    </script>
+</body>
+</html>
