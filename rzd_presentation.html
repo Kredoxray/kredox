@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Основные вызовы ОАО «РЖД» в грузовых ж/д перевозках</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --primary: #003082;
+  --accent: #0055A5;
+  --light-blue: #4A90D9;
+  --negative: #E63946;
+  --positive: #2A9D8F;
+  --bg: #FFFFFF;
+  --bg-sub: #F0F4F8;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-sub);
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  color: #1a1a2e;
+}
+
+h1, h2, h3, h4, h5 { font-family: 'Montserrat', sans-serif; font-weight: 700; }
+
+/* ===== Presentation wrapper ===== */
+#presentation {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-sub);
+}
+
+.slide-container {
+  position: relative;
+  width: 1280px; height: 720px;
+  transform-origin: center center;
+}
+
+.slide {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: var(--bg);
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.10);
+  padding: 54px 64px 64px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Decorative SVG watermark — train / rails */
+.slide::after {
+  content: '';
+  position: absolute;
+  right: 24px; bottom: 24px;
+  width: 120px; height: 120px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120' fill='none'%3E%3Crect x='10' y='85' width='100' height='6' rx='3' fill='%23003082'/%3E%3Crect x='18' y='78' width='4' height='10' fill='%23003082'/%3E%3Crect x='38' y='78' width='4' height='10' fill='%23003082'/%3E%3Crect x='58' y='78' width='4' height='10' fill='%23003082'/%3E%3Crect x='78' y='78' width='4' height='10' fill='%23003082'/%3E%3Crect x='98' y='78' width='4' height='10' fill='%23003082'/%3E%3Crect x='25' y='35' width='50' height='40' rx='6' fill='%23003082'/%3E%3Crect x='80' y='50' width='25' height='25' rx='4' fill='%23003082'/%3E%3Ccircle cx='35' cy='78' r='7' fill='%23003082'/%3E%3Ccircle cx='65' cy='78' r='7' fill='%23003082'/%3E%3Ccircle cx='92' cy='78' r='7' fill='%23003082'/%3E%3Crect x='30' y='42' width='18' height='14' rx='2' fill='%23fff' opacity='0.5'/%3E%3Crect x='52' y='42' width='18' height='14' rx='2' fill='%23fff' opacity='0.5'/%3E%3Crect x='25' y='30' width='10' height='8' rx='2' fill='%23003082'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.07;
+  pointer-events: none;
+}
+
+/* Slide header line */
+.slide-title {
+  font-size: 26px;
+  color: var(--primary);
+  margin-bottom: 6px;
+  line-height: 1.25;
+  flex-shrink: 0;
+}
+.slide-title-line {
+  width: 100%; height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--light-blue));
+  border-radius: 2px;
+  margin-bottom: 24px;
+  flex-shrink: 0;
+}
+
+.slide-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* Slide number */
+.slide-number {
+  position: absolute;
+  bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #999;
+  font-family: 'Open Sans', sans-serif;
+}
+
+/* ===== Navigation ===== */
+.nav-controls {
+  position: fixed;
+  bottom: 18px; left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 100;
+}
+.nav-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.nav-btn:hover { background: var(--accent); }
+.nav-btn:disabled { background: #b0b0b0; cursor: default; }
+
+.dots {
+  display: flex; gap: 6px;
+}
+.dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #ccc;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.dot.active {
+  background: var(--primary);
+  transform: scale(1.3);
+}
+
+/* ===== Slide 1 — Title ===== */
+.title-slide {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 60px;
+}
+.title-slide .main-title {
+  font-size: 30px;
+  color: var(--primary);
+  line-height: 1.3;
+  max-width: 900px;
+  margin-bottom: 20px;
+}
+.title-slide .subtitle {
+  font-size: 18px;
+  color: #555;
+  margin-bottom: 8px;
+}
+.title-slide .date {
+  font-size: 16px;
+  color: #888;
+  margin-bottom: 32px;
+}
+.title-line {
+  width: 200px; height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--light-blue));
+  border-radius: 2px;
+  margin: 0 auto 24px;
+}
+.title-icon {
+  display: inline-block;
+}
+.title-icon svg { width: 64px; height: 64px; }
+
+/* ===== Metric Cards (Slide 2) ===== */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.metric-card {
+  background: var(--bg-sub);
+  border-radius: 10px;
+  padding: 20px 16px;
+  text-align: center;
+  border-left: 4px solid var(--accent);
+}
+.metric-card.negative { border-left-color: var(--negative); }
+.metric-value {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+.metric-card.negative .metric-value { color: var(--negative); }
+.metric-label {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.35;
+}
+.slide-comment {
+  font-size: 13.5px;
+  color: #555;
+  line-height: 1.55;
+  margin-top: auto;
+  padding: 12px 16px;
+  background: var(--bg-sub);
+  border-radius: 8px;
+  border-left: 3px solid var(--light-blue);
+}
+
+/* ===== Chart containers ===== */
+.chart-wrapper {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+.chart-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ===== Challenge Slides — cards ===== */
+.cards-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  flex: 1;
+}
+.challenge-card {
+  background: var(--bg-sub);
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.challenge-card .card-icon {
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  background: var(--primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center; justify-content: center;
+}
+.challenge-card .card-icon svg { width: 22px; height: 22px; fill: #fff; }
+.card-content h4 {
+  font-size: 14px;
+  color: var(--primary);
+  margin-bottom: 5px;
+  font-family: 'Montserrat', sans-serif;
+}
+.card-content p {
+  font-size: 12.5px;
+  color: #444;
+  line-height: 1.45;
+}
+
+/* ===== Slide 7 — Infra ===== */
+.infra-layout {
+  display: flex;
+  gap: 24px;
+  flex: 1;
+}
+.infra-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-shrink: 0;
+  width: 50px;
+  align-items: center;
+  padding-top: 8px;
+}
+.infra-icon-circle {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.infra-icon-circle svg { width: 20px; height: 20px; fill: #fff; }
+.infra-connector {
+  width: 2px; flex: 1;
+  background: linear-gradient(180deg, var(--primary), var(--light-blue));
+  border-radius: 1px;
+}
+.infra-items {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+.infra-item {
+  background: var(--bg-sub);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+.infra-item h4 {
+  font-size: 14px;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+.infra-item p {
+  font-size: 12.5px;
+  color: #444;
+  line-height: 1.45;
+}
+
+/* ===== Slide 8 — Two blocks ===== */
+.two-blocks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  flex: 1;
+}
+.info-block {
+  background: var(--bg-sub);
+  border-radius: 10px;
+  padding: 18px 20px;
+  overflow-y: auto;
+}
+.info-block h4 {
+  font-size: 15px;
+  color: var(--primary);
+  margin-bottom: 10px;
+  font-family: 'Montserrat', sans-serif;
+}
+.info-block ul {
+  list-style: none;
+  padding: 0;
+}
+.info-block ul li {
+  font-size: 12.5px;
+  color: #444;
+  line-height: 1.5;
+  padding: 5px 0;
+  border-bottom: 1px solid #e0e6ed;
+  padding-left: 14px;
+  position: relative;
+}
+.info-block ul li:last-child { border-bottom: none; }
+.info-block ul li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 11px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.highlight-red { color: var(--negative); font-weight: 600; }
+.highlight-blue { color: var(--accent); font-weight: 600; }
+.highlight-green { color: var(--positive); font-weight: 600; }
+
+/* ===== Slide 9 — Two columns ===== */
+.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  flex: 1;
+}
+.col-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.col-block h4 {
+  font-size: 15px;
+  color: var(--primary);
+  font-family: 'Montserrat', sans-serif;
+}
+.col-block p, .col-block li {
+  font-size: 12.5px;
+  color: #444;
+  line-height: 1.5;
+}
+.col-block ul {
+  list-style: disc;
+  padding-left: 18px;
+}
+.mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+.mini-table th {
+  background: var(--primary);
+  color: #fff;
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11.5px;
+}
+.mini-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #e0e6ed;
+  color: #333;
+}
+.mini-table tr:last-child td { border-bottom: none; }
+
+/* ===== Slide 10 — Positive ===== */
+.positive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  flex: 1;
+}
+.positive-card {
+  background: var(--bg-sub);
+  border-radius: 10px;
+  padding: 16px 18px;
+  border-left: 4px solid var(--positive);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.positive-card .p-icon {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  background: var(--positive);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.positive-card .p-icon svg { width: 20px; height: 20px; fill: #fff; }
+.positive-card h4 {
+  font-size: 13.5px;
+  color: var(--positive);
+  margin-bottom: 4px;
+  font-family: 'Montserrat', sans-serif;
+}
+.positive-card p {
+  font-size: 12px;
+  color: #444;
+  line-height: 1.45;
+}
+
+/* ===== Slide 11 — Solutions timeline ===== */
+.solutions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+}
+.solution-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.solution-num {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.solution-text h4 {
+  font-size: 13.5px;
+  color: var(--primary);
+  margin-bottom: 3px;
+  font-family: 'Montserrat', sans-serif;
+}
+.solution-text p {
+  font-size: 12px;
+  color: #444;
+  line-height: 1.45;
+}
+
+/* ===== Slide 12 — Conclusion ===== */
+.conclusion-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+}
+.quote-block {
+  background: var(--bg-sub);
+  border-radius: 10px;
+  padding: 22px 28px;
+  border-left: 4px solid var(--primary);
+  font-size: 14px;
+  color: #333;
+  line-height: 1.65;
+}
+.quote-block p { margin-bottom: 10px; }
+.quote-block p:last-child { margin-bottom: 0; }
+.conclusion-icons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 10px;
+}
+.conclusion-icon-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.conclusion-icon-circle {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+}
+.conclusion-icon-circle svg { width: 24px; height: 24px; fill: #fff; }
+.conclusion-icon-item span {
+  font-size: 11.5px;
+  color: #555;
+  max-width: 140px;
+  line-height: 1.35;
+}
+
+/* ===== Utility ===== */
+.text-small { font-size: 12.5px; }
+.mt-auto { margin-top: auto; }
+.mb-8 { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<div id="presentation">
+  <div class="slide-container" id="slideContainer">
+
+    <!-- ======================== SLIDE 1 — Title ======================== -->
+    <div class="slide title-slide active" data-index="0">
+      <div class="title-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="46" width="56" height="5" rx="2.5" fill="#003082"/>
+          <rect x="10" y="40" width="3" height="8" fill="#003082"/>
+          <rect x="22" y="40" width="3" height="8" fill="#003082"/>
+          <rect x="34" y="40" width="3" height="8" fill="#003082"/>
+          <rect x="46" y="40" width="3" height="8" fill="#003082"/>
+          <rect x="12" y="14" width="30" height="24" rx="4" fill="#003082"/>
+          <rect x="46" y="22" width="14" height="16" rx="3" fill="#0055A5"/>
+          <circle cx="20" cy="42" r="5" fill="#003082"/>
+          <circle cx="38" cy="42" r="5" fill="#003082"/>
+          <circle cx="54" cy="42" r="5" fill="#0055A5"/>
+          <rect x="16" y="20" width="10" height="8" rx="1.5" fill="#fff" opacity="0.5"/>
+          <rect x="29" y="20" width="10" height="8" rx="1.5" fill="#fff" opacity="0.5"/>
+          <rect x="12" y="9" width="8" height="6" rx="2" fill="#003082"/>
+        </svg>
+      </div>
+      <h1 class="main-title">Основные вызовы, стоящие перед ОАО «РЖД» в части грузовых железнодорожных перевозок</h1>
+      <p class="subtitle">Аналитический обзор ключевых тенденций и проблем</p>
+      <p class="date">2026 г.</p>
+      <div class="title-line"></div>
+      <div class="slide-number">1 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 2 — Key Metrics ======================== -->
+    <div class="slide" data-index="1">
+      <h2 class="slide-title">Железнодорожные грузоперевозки в России: ключевые цифры</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">1 115,8</div>
+            <div class="metric-label">млн тонн — погрузка в 2025 г.<br>(минимум за 16 лет)</div>
+          </div>
+          <div class="metric-card negative">
+            <div class="metric-value">−5,6%</div>
+            <div class="metric-label">снижение погрузки<br>в 2025 г. к 2024 г.</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">2 478,3</div>
+            <div class="metric-label">млрд ткм — грузооборот<br>в 2025 г.</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">1,4 млн</div>
+            <div class="metric-label">ед. — парк грузовых вагонов<br>(профицит ~200–300 тыс.)</div>
+          </div>
+        </div>
+        <div class="slide-comment">
+          По данным Reuters, объём перевозок РЖД в 2025 году достиг самого низкого уровня за последние 16 лет. Снижение наблюдается уже более 20 месяцев подряд.
+        </div>
+      </div>
+      <div class="slide-number">2 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 3 — Loading Dynamics ======================== -->
+    <div class="slide" data-index="2">
+      <h2 class="slide-title">Динамика погрузки на сети РЖД, млн тонн</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="chart-wrapper">
+          <canvas id="chartLoading"></canvas>
+        </div>
+        <div class="slide-comment" style="margin-top:10px;">
+          Суммарное падение за 2022–2025 гг. составило ~166 млн тонн (−13% к уровню 2021 г.). Единственный год восстановления — 2021 (постковидный отскок).
+        </div>
+      </div>
+      <div class="slide-number">3 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 4 — Structure by Cargo ======================== -->
+    <div class="slide" data-index="3">
+      <h2 class="slide-title">Структура погрузки по видам грузов в 2025 году</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="chart-wrapper">
+          <canvas id="chartStructure"></canvas>
+        </div>
+      </div>
+      <div class="slide-number">4 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 5 — YoY Change ======================== -->
+    <div class="slide" data-index="4">
+      <h2 class="slide-title">Изменение погрузки по номенклатурам: 2025 г. к 2024 г.</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="chart-wrapper">
+          <canvas id="chartChange"></canvas>
+        </div>
+        <div class="slide-comment" style="margin-top:10px;">
+          Рост показали только удобрения и цветная руда. Наибольшие потери — лом чёрных металлов (−33%), чёрные металлы (−17%) и зерно (−17%).
+        </div>
+      </div>
+      <div class="slide-number">5 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 6 — Challenge 1 ======================== -->
+    <div class="slide" data-index="5">
+      <h2 class="slide-title">Вызов 1: Системное сокращение грузовой базы</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="cards-2x2">
+          <div class="challenge-card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-1-1 4-4-4-4 1-1 5 5-5 5zm-4-5V7h2v10H7z"/></svg>
+            </div>
+            <div class="card-content">
+              <h4>Охлаждение экономики и высокая ключевая ставка ЦБ</h4>
+              <p>Замедление деловой активности, снижение объёмов строительства (−10,5%), металлургии (−17%), падение спроса на перевозки.</p>
+            </div>
+          </div>
+          <div class="challenge-card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24"><path d="M17.66 8L12 2.35 6.34 8A8.02 8.02 0 004 13.64c0 2 .78 4.11 2.34 5.67a7.99 7.99 0 0011.32 0c1.56-1.56 2.34-3.67 2.34-5.67C20 11.27 19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z"/></svg>
+            </div>
+            <div class="card-content">
+              <h4>Кризис в угольной отрасли</h4>
+              <p>74% предприятий убыточны (данные Минэнерго), убытки отрасли за 2025 г. — до 350 млрд руб. Уголь — 29% погрузки РЖД.</p>
+            </div>
+          </div>
+          <div class="challenge-card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            </div>
+            <div class="card-content">
+              <h4>Снижение урожая</h4>
+              <p>Неблагоприятные погодные условия привели к сокращению перевозки зерна на 17%.</p>
+            </div>
+          </div>
+          <div class="challenge-card">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H8v-2h4v2zm4-4H8v-2h8v2zm0-4H8V7h8v2z"/></svg>
+            </div>
+            <div class="card-content">
+              <h4>Ремонты на НПЗ</h4>
+              <p>Массовые плановые и внеплановые ремонты на нефтеперерабатывающих заводах привели к снижению погрузки нефтепродуктов на 5%.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-number">6 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 7 — Challenge 2 ======================== -->
+    <div class="slide" data-index="6">
+      <h2 class="slide-title">Вызов 2: Инфраструктурные «бутылочные горлышки»</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="infra-layout">
+          <div class="infra-icons">
+            <div class="infra-icon-circle">
+              <svg viewBox="0 0 24 24"><path d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z"/></svg>
+            </div>
+            <div class="infra-connector"></div>
+            <div class="infra-icon-circle">
+              <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+            </div>
+          </div>
+          <div class="infra-items">
+            <div class="infra-item">
+              <h4>Дефицит пропускной способности Восточного полигона</h4>
+              <p>Спрос на перевозки в восточном направлении значительно превышает возможности инфраструктуры (~180 млн т/год). На отдельных участках БАМа требуется три тепловоза одновременно.</p>
+            </div>
+            <div class="infra-item">
+              <h4>Третий этап модернизации</h4>
+              <p>2-й Северомуйский тоннель, 2-й Кодарский тоннель, мост через Амур, 2-е пути, электрификация — прирост до 255 млн т. Завершение — не ранее 2032 г.</p>
+            </div>
+            <div class="infra-item">
+              <h4>Сокращение инвестпрограммы</h4>
+              <p>На 2025 г. — 899 млрд руб. (на треть меньше 2024 г.); на 2025–2030 гг. инвестпрограмма может быть снижена с 12 до 5,7 трлн руб.</p>
+            </div>
+            <div class="infra-item">
+              <h4>Дефицит кадров</h4>
+              <p>Нехватка машинистов, составителей поездов, путевых обходчиков и технических специалистов. Проблема усугубляется демографическим спадом.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-number">7 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 8 — Challenge 3 ======================== -->
+    <div class="slide" data-index="7">
+      <h2 class="slide-title">Вызов 3: Профицит вагонов и проблема «инфлированных заявок»</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="two-blocks">
+          <div class="info-block">
+            <h4>Профицит вагонного парка</h4>
+            <ul>
+              <li>Парк грузовых вагонов на сети: <span class="highlight-blue">1,4 млн единиц</span></li>
+              <li>Избыточные вагоны: <span class="highlight-red">200–300 тыс. единиц</span></li>
+              <li>Простаивающие вагоны: <span class="highlight-red">&gt; 100 тыс. единиц</span></li>
+              <li>Замкнутый круг: избыток вагонов &rarr; заторы на линиях &rarr; снижение скорости &rarr; ещё больше вагонов закупается для компенсации</li>
+            </ul>
+          </div>
+          <div class="info-block">
+            <h4>Инфлированные заявки</h4>
+            <ul>
+              <li>Заявки на перевозку в 2025 г.: <span class="highlight-blue">2,3 млрд т</span> при фактической погрузке <span class="highlight-red">1,1 млрд т</span> (завышены в 2 раза)</li>
+              <li>Доля «сорванных» отправок: <span class="highlight-red">15–24%</span> в отдельные месяцы</li>
+              <li>Потери за I полугодие 2025: <span class="highlight-red">127 млн тонн</span> непредъявленного груза</li>
+              <li>Основные грузы: уголь, нефтепродукты, чёрные металлы, стройматериалы</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="slide-number">8 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 9 — Challenge 4 ======================== -->
+    <div class="slide" data-index="8">
+      <h2 class="slide-title">Вызов 4: Конкуренция и финансовое давление</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="two-cols">
+          <div class="col-block">
+            <h4>Конкуренция с автотранспортом</h4>
+            <ul>
+              <li>Рынок автоперевозок в 2024 г. — рекордные <span class="highlight-blue">6,78 млрд тонн</span></li>
+              <li>На расстояниях 300–500 км автотранспорт выигрывает по стоимости и срокам (пиломатериалы, продовольствие, лом)</li>
+              <li>Повышение тарифов РЖД и негибкость &rarr; переключение грузоотправителей на автомобильный и даже водный транспорт</li>
+            </ul>
+          </div>
+          <div class="col-block">
+            <h4>Финансовые результаты РЖД</h4>
+            <table class="mini-table">
+              <thead>
+                <tr><th>Показатель</th><th>2023</th><th>2024</th><th>2025 (9 мес.)</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Чистая прибыль</td><td>118,3 млрд</td><td>13,9 млрд</td><td style="color:#E63946;font-weight:600;">−4,2 млрд</td></tr>
+              </tbody>
+            </table>
+            <ul style="margin-top:12px;">
+              <li>Чистая прибыль за I пол. 2025 г. по РСБУ: <span class="highlight-red">2,7 млрд руб. (−95% г/г)</span></li>
+              <li>В декабре 2025 г. компания запрашивала у государства <span class="highlight-red">200 млрд руб.</span> для покрытия кассового разрыва</li>
+              <li>С 1 декабря 2025 г. проиндексированы тарифы на ж/д перевозки</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="slide-number">9 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 10 — Positive Trends ======================== -->
+    <div class="slide" data-index="9">
+      <h2 class="slide-title">Позитивные тренды и точки роста</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="positive-grid">
+          <div class="positive-card">
+            <div class="p-icon">
+              <svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+            </div>
+            <div>
+              <h4>Восточный экспорт растёт</h4>
+              <p>+6,5% за 2025 г. (163,5 млн т). Неугольные грузы на восток: +7,6%, удобрения: +62,6%, контейнеры: +13%.</p>
+            </div>
+          </div>
+          <div class="positive-card">
+            <div class="p-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            </div>
+            <div>
+              <h4>Удобрения — драйвер роста</h4>
+              <p>+3,8% за 2025 г. (70,3 млн т). Стабильный экспортный спрос на удобрения поддерживает объёмы.</p>
+            </div>
+          </div>
+          <div class="positive-card">
+            <div class="p-icon">
+              <svg viewBox="0 0 24 24"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0012 4c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+            </div>
+            <div>
+              <h4>Рост скорости отправок</h4>
+              <p>Средняя маршрутная скорость достигла 40,5 км/ч — лучший результат за последние 3 года.</p>
+            </div>
+          </div>
+          <div class="positive-card">
+            <div class="p-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM5 15h14v3H5z"/></svg>
+            </div>
+            <div>
+              <h4>Контейнеризация</h4>
+              <p>Доля контейнерных грузов растёт (4,6% в I пол. 2025 г. vs 4,3% годом ранее). Использование полувагонов для контейнеров.</p>
+            </div>
+          </div>
+          <div class="positive-card" style="grid-column: 1 / -1; max-width: 50%; justify-self: center;">
+            <div class="p-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+            </div>
+            <div>
+              <h4>Октябрь 2025 — первый месяц роста за год</h4>
+              <p>+0,1% г/г (96,9 млн т) — первый положительный результат после длительного спада.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-number">10 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 11 — Solutions ======================== -->
+    <div class="slide" data-index="10">
+      <h2 class="slide-title">Основные направления решения проблем</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="solutions-list">
+          <div class="solution-item">
+            <div class="solution-num">1</div>
+            <div class="solution-text">
+              <h4>Борьба с инфлированными заявками</h4>
+              <p>Внедрение принципа take-or-pay (оплата забронированных, но неиспользованных объёмов), детальный разбор причин недогруза с грузоотправителями.</p>
+            </div>
+          </div>
+          <div class="solution-item">
+            <div class="solution-num">2</div>
+            <div class="solution-text">
+              <h4>Маршрутизация и оптимизация движения</h4>
+              <p>Формирование полносоставных поездов из точек погрузки, попутная перевозка грузов для снижения порожнего пробега, обмен вагонным парком между операторами.</p>
+            </div>
+          </div>
+          <div class="solution-item">
+            <div class="solution-num">3</div>
+            <div class="solution-text">
+              <h4>Регулирование парка вагонов</h4>
+              <p>Ограничение движения порожних вагонов (мера действует с осени 2024), стимулирование списания устаревшего подвижного состава, адресная работа с профицитом.</p>
+            </div>
+          </div>
+          <div class="solution-item">
+            <div class="solution-num">4</div>
+            <div class="solution-text">
+              <h4>Модернизация Восточного полигона (III этап)</h4>
+              <p>2-й Северомуйский тоннель, 2-й Кодарский тоннель, мост через Амур, вторые пути на БАМе, электрификация — целевой рост до 255 млн т.</p>
+            </div>
+          </div>
+          <div class="solution-item">
+            <div class="solution-num">5</div>
+            <div class="solution-text">
+              <h4>Диверсификация грузовой базы</h4>
+              <p>Переориентация от угля к промышленным, сельскохозяйственным и контейнерным грузам; развитие контейнеризации.</p>
+            </div>
+          </div>
+          <div class="solution-item">
+            <div class="solution-num">6</div>
+            <div class="solution-text">
+              <h4>Тарифная политика и государственная поддержка</h4>
+              <p>Индексация тарифов с 01.12.2025, обнуление экспортных пошлин на уголь, отсрочка по НДПИ, компенсация 12,8% тарифа на экспорт угля через С-З/Юг.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-number">11 / 12</div>
+    </div>
+
+    <!-- ======================== SLIDE 12 — Conclusion ======================== -->
+    <div class="slide" data-index="11">
+      <h2 class="slide-title">Выводы и перспективы</h2>
+      <div class="slide-title-line"></div>
+      <div class="slide-body">
+        <div class="conclusion-block">
+          <div class="quote-block">
+            <p>ОАО «РЖД» переживает сложнейший период за последние 16 лет. Снижение грузовой базы, инфраструктурные ограничения, профицит вагонного парка и высокие процентные ставки создают системное давление на отрасль.</p>
+            <p>Однако ряд позитивных трендов — рост экспорта на восток, контейнеризация, повышение маршрутной скорости и меры по борьбе с инфлированными заявками — дают основания для сдержанного оптимизма.</p>
+            <p>По прогнозу РЖД, погрузка в 2026 г. может составить около <strong>1,13 млрд тонн</strong>. Принципиальное улучшение ситуации возможно после завершения III этапа модернизации Восточного полигона (не ранее 2032 г.) и при смягчении макроэкономических условий.</p>
+          </div>
+          <div class="conclusion-icons">
+            <div class="conclusion-icon-item">
+              <div class="conclusion-icon-circle">
+                <svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+              </div>
+              <span>Рост восточного экспорта и контейнеризация</span>
+            </div>
+            <div class="conclusion-icon-item">
+              <div class="conclusion-icon-circle">
+                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+              </div>
+              <span>Модернизация инфраструктуры до 2032 г.</span>
+            </div>
+            <div class="conclusion-icon-item">
+              <div class="conclusion-icon-circle">
+                <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+              </div>
+              <span>Борьба с инфлированными заявками</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-number">12 / 12</div>
+    </div>
+
+  </div><!-- /slide-container -->
+</div><!-- /presentation -->
+
+<!-- Navigation -->
+<div class="nav-controls">
+  <button class="nav-btn" id="btnPrev" onclick="changeSlide(-1)">&#9664; Назад</button>
+  <div class="dots" id="dots"></div>
+  <button class="nav-btn" id="btnNext" onclick="changeSlide(1)">Далее &#9654;</button>
+</div>
+
+<script>
+/* ===== Navigation ===== */
+const slides = document.querySelectorAll('.slide');
+const totalSlides = slides.length;
+let currentSlide = 0;
+
+const dotsContainer = document.getElementById('dots');
+for (let i = 0; i < totalSlides; i++) {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.addEventListener('click', () => goToSlide(i));
+  dotsContainer.appendChild(d);
+}
+
+function goToSlide(n) {
+  slides[currentSlide].classList.remove('active');
+  dotsContainer.children[currentSlide].classList.remove('active');
+  currentSlide = n;
+  slides[currentSlide].classList.add('active');
+  dotsContainer.children[currentSlide].classList.add('active');
+  document.getElementById('btnPrev').disabled = currentSlide === 0;
+  document.getElementById('btnNext').disabled = currentSlide === totalSlides - 1;
+  renderChartsIfNeeded();
+}
+
+function changeSlide(dir) {
+  const next = currentSlide + dir;
+  if (next < 0 || next >= totalSlides) return;
+  goToSlide(next);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') changeSlide(-1);
+});
+
+/* Initial state */
+document.getElementById('btnPrev').disabled = true;
+
+/* ===== Responsive scaling ===== */
+function scalePresentation() {
+  const container = document.getElementById('slideContainer');
+  const w = window.innerWidth;
+  const h = window.innerHeight - 60; /* space for nav */
+  const scaleX = w / 1280;
+  const scaleY = h / 720;
+  const scale = Math.min(scaleX, scaleY, 1.2);
+  container.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', scalePresentation);
+scalePresentation();
+
+/* ===== Charts ===== */
+Chart.register(ChartDataLabels);
+Chart.defaults.font.family = "'Open Sans', sans-serif";
+
+const chartInstances = {};
+
+function renderChartsIfNeeded() {
+  if (currentSlide === 2 && !chartInstances.loading) createChartLoading();
+  if (currentSlide === 3 && !chartInstances.structure) createChartStructure();
+  if (currentSlide === 4 && !chartInstances.change) createChartChange();
+}
+
+/* --- Slide 3: Loading dynamics bar chart --- */
+function createChartLoading() {
+  const ctx = document.getElementById('chartLoading').getContext('2d');
+  const years = ['2019', '2020', '2021', '2022', '2023', '2024', '2025'];
+  const values = [1278.1, 1243.6, 1282.0, 1234.0, 1232.3, 1181.4, 1115.8];
+  const colors = values.map((v, i) => i === 6 ? '#E63946' : '#0055A5');
+
+  chartInstances.loading = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: years,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 4,
+        barPercentage: 0.65,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 28, bottom: 4, left: 0, right: 0 } },
+      scales: {
+        y: {
+          beginAtZero: false,
+          min: 1050,
+          max: 1350,
+          ticks: { font: { size: 11 } },
+          grid: { color: '#e8ecf2' }
+        },
+        x: {
+          ticks: { font: { size: 12, weight: '600' } },
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          anchor: 'end',
+          align: 'top',
+          color: (ctx) => ctx.dataIndex === 6 ? '#E63946' : '#003082',
+          font: { size: 12, weight: '600' },
+          formatter: (v) => v.toLocaleString('ru-RU', { minimumFractionDigits: 1 })
+        },
+        annotation: undefined
+      }
+    },
+    plugins: [{
+      id: 'avgLine',
+      afterDraw(chart) {
+        const yScale = chart.scales.y;
+        const avgY = yScale.getPixelForValue(1254.0);
+        const ctx2 = chart.ctx;
+        ctx2.save();
+        ctx2.setLineDash([6, 4]);
+        ctx2.strokeStyle = '#888';
+        ctx2.lineWidth = 1.5;
+        ctx2.beginPath();
+        ctx2.moveTo(chart.chartArea.left, avgY);
+        ctx2.lineTo(chart.chartArea.right, avgY);
+        ctx2.stroke();
+        ctx2.setLineDash([]);
+        ctx2.fillStyle = '#888';
+        ctx2.font = '11px Open Sans';
+        ctx2.fillText('Средний уровень 2019–2023: 1 254 млн т', chart.chartArea.right - 280, avgY - 6);
+        ctx2.restore();
+      }
+    }]
+  });
+}
+
+/* --- Slide 4: Structure horizontal bar --- */
+function createChartStructure() {
+  const ctx = document.getElementById('chartStructure').getContext('2d');
+  const labels = [
+    'Каменный уголь',
+    'Нефть и нефтепродукты',
+    'Прочие (вкл. контейнеры)',
+    'Железная и марг. руда',
+    'Строительные грузы',
+    'Удобрения',
+    'Чёрные металлы',
+    'Зерно',
+    'Лесные грузы',
+    'Цемент',
+    'Руда цветная и серн. сырьё'
+  ];
+  const values = [324.5, 197.1, 172.3, 108.4, 99.3, 70.3, 56.0, 26.0, 24.2, 20.5, 17.2];
+  const total = values.reduce((a, b) => a + b, 0);
+  const palette = [
+    '#003082', '#0055A5', '#4A90D9', '#6BAED6', '#8BBFE0',
+    '#A6CFE8', '#B0C4DE', '#7B9EB8', '#5A7FA0', '#3E6690', '#2D4F78'
+  ];
+
+  chartInstances.structure = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: palette,
+        borderRadius: 3,
+        barPercentage: 0.7,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { right: 80 } },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: { font: { size: 10 } },
+          grid: { color: '#e8ecf2' }
+        },
+        y: {
+          ticks: { font: { size: 11 } },
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          anchor: 'end',
+          align: 'right',
+          color: '#003082',
+          font: { size: 11, weight: '600' },
+          formatter: (v) => `${v.toLocaleString('ru-RU', { minimumFractionDigits: 1 })} (${(v / total * 100).toFixed(1)}%)`
+        }
+      }
+    }
+  });
+}
+
+/* --- Slide 5: Diverging bar chart --- */
+function createChartChange() {
+  const ctx = document.getElementById('chartChange').getContext('2d');
+  const items = [
+    { label: 'Руда цветная и серн. сырьё', value: 5.1 },
+    { label: 'Удобрения', value: 3.8 },
+    { label: 'Железная и марг. руда', value: -0.5 },
+    { label: 'Каменный уголь', value: -2.1 },
+    { label: 'Нефть и нефтепродукты', value: -5.0 },
+    { label: 'Лесные грузы (11 мес.)', value: -5.4 },
+    { label: 'Строительные грузы', value: -10.5 },
+    { label: 'Кокс (11 мес.)', value: -16.5 },
+    { label: 'Зерно (11 мес.)', value: -16.6 },
+    { label: 'Чёрные металлы (11 мес.)', value: -17.4 },
+    { label: 'Лом чёрных металлов (11 мес.)', value: -33.2 },
+  ];
+
+  const labels = items.map(i => i.label);
+  const values = items.map(i => i.value);
+  const colors = values.map(v => v >= 0 ? '#2A9D8F' : '#E63946');
+
+  chartInstances.change = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 3,
+        barPercentage: 0.7,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { right: 50, left: 10 } },
+      scales: {
+        x: {
+          min: -38,
+          max: 10,
+          ticks: {
+            font: { size: 10 },
+            callback: (v) => v + '%'
+          },
+          grid: { color: '#e8ecf2' }
+        },
+        y: {
+          ticks: { font: { size: 11 } },
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          anchor: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'end' : 'start',
+          align: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'right' : 'left',
+          color: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? '#2A9D8F' : '#E63946',
+          font: { size: 11, weight: '600' },
+          formatter: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + '%'
+        }
+      }
+    }
+  });
+}
+
+/* Render first chart when needed */
+renderChartsIfNeeded();
+</script>
+</body>
+</html>
