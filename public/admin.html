@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админ-панель | Интерактивное голосование</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .admin-results-block {
+      padding: 0 20px 20px;
+      animation: fadeIn 0.3s ease;
+    }
+    .result-item-section-admin {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .result-item-section-admin:last-child { border-bottom: none; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .active-indicator {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #f0fff4; color: #276749;
+      padding: 6px 14px; border-radius: 20px;
+      font-size: 0.82rem; font-weight: 700;
+      border: 1px solid #9ae6b4;
+    }
+    .active-indicator .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #38a169;
+      animation: blink 1s ease-in-out infinite;
+    }
+    .panel-loading {
+      text-align: center; padding: 48px; color: var(--color-text-light);
+    }
+    .results-matrix-admin { overflow-x: auto; }
+    .q-number {
+      font-size: 0.72rem; font-weight: 700; color: var(--color-text-light);
+      margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen" class="login-page">
+  <div class="card login-card">
+    <h2>Вход в админ-панель</h2>
+    <p class="login-subtitle">Введите пароль для доступа к управлению голосованием</p>
+    <div class="form-group">
+      <label class="form-label" for="password-input">Пароль</label>
+      <input type="password" class="form-input" id="password-input"
+        placeholder="Введите пароль" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div id="login-error" class="hidden" style="color:var(--color-error);font-size:0.88rem;margin-bottom:12px;"></div>
+    <button class="btn btn-primary btn-lg" onclick="doLogin()">Войти</button>
+  </div>
+</div>
+
+<!-- Admin Panel -->
+<div id="admin-panel" class="admin-layout hidden">
+
+  <header class="page-header">
+    <h1>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5L12 1z"/>
+      </svg>
+      Панель управления голосованием
+    </h1>
+    <div class="subtitle" id="active-indicator-header"></div>
+  </header>
+
+  <div class="admin-main">
+
+    <div class="admin-toolbar">
+      <h2>Вопросы</h2>
+      <div class="btn-group">
+        <button class="btn btn-outline btn-sm" onclick="doLogout()">Выйти</button>
+      </div>
+    </div>
+
+    <div id="questions-list">
+      <div class="panel-loading">Загрузка...</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* ── State ──────────────────────────────────────────────────────────────── */
+let appState = {
+  questions: [],
+  activeQuestionId: null
+};
+let socket = null;
+
+const TYPE_LABELS = {
+  scale_multi: 'Шкала 1–7',
+  open_text: 'Открытый вопрос',
+  matrix: 'Матрица'
+};
+
+/* ── Auth ───────────────────────────────────────────────────────────────── */
+async function doLogin() {
+  const pw = document.getElementById('password-input').value;
+  if (!pw) return;
+
+  const res = await fetch('/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pw })
+  });
+  const data = await res.json();
+
+  if (data.success) {
+    showAdminPanel();
+  } else {
+    const err = document.getElementById('login-error');
+    err.textContent = data.message || 'Неверный пароль';
+    err.classList.remove('hidden');
+  }
+}
+
+async function doLogout() {
+  await fetch('/admin/logout', { method: 'POST' });
+  location.reload();
+}
+
+async function checkAuth() {
+  const res = await fetch('/admin/check');
+  const data = await res.json();
+  if (data.authenticated) showAdminPanel();
+}
+
+/* ── Panel Init ─────────────────────────────────────────────────────────── */
+function showAdminPanel() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('admin-panel').classList.remove('hidden');
+  initSocket();
+  loadState();
+}
+
+async function loadState() {
+  const res = await fetch('/admin/state');
+  if (!res.ok) { doLogout(); return; }
+  const data = await res.json();
+  appState.questions = data.questions;
+  appState.activeQuestionId = data.activeQuestionId;
+  renderQuestions();
+}
+
+/* ── Socket ─────────────────────────────────────────────────────────────── */
+function initSocket() {
+  socket = io();
+
+  socket.on('vote_count_update', ({ questionId, count }) => {
+    const q = appState.questions.find(q => q.id === questionId);
+    if (q) q.voteCount = count;
+    const el = document.getElementById(`vote-count-${questionId}`);
+    if (el) el.textContent = count;
+  });
+
+  socket.on('question_activated', ({ question }) => {
+    // Update statuses in local state
+    appState.questions.forEach(q => {
+      if (q.status === 'active') q.status = 'closed';
+    });
+    const q = appState.questions.find(q => q.id === question.id);
+    if (q) q.status = 'active';
+    appState.activeQuestionId = question.id;
+    renderQuestions();
+  });
+
+  socket.on('question_closed', ({ questionId, results }) => {
+    const q = appState.questions.find(q => q.id === questionId);
+    if (q) {
+      q.status = 'closed';
+      q.lastResults = results;
+    }
+    appState.activeQuestionId = null;
+    renderQuestions();
+    // Auto-show results in admin panel
+    showAdminResults(questionId, results);
+  });
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────── */
+function activateQuestion(questionId) {
+  socket.emit('activate_question', { questionId }, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+  });
+}
+
+function closeQuestion(questionId) {
+  socket.emit('close_question', { questionId }, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+  });
+}
+
+function showResultsToAll(questionId) {
+  socket.emit('show_results', { questionId }, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+    showToast('Результаты показаны участникам', 'success');
+  });
+}
+
+function resetQuestion(questionId) {
+  if (!confirm('Сбросить ответы по этому вопросу?')) return;
+  socket.emit('reset_question', { questionId }, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+    const q = appState.questions.find(q => q.id === questionId);
+    if (q) { q.status = 'inactive'; q.voteCount = 0; delete q.lastResults; }
+    if (appState.activeQuestionId === questionId) appState.activeQuestionId = null;
+    renderQuestions();
+  });
+}
+
+function toggleAdminResults(questionId) {
+  const panel = document.getElementById(`results-panel-${questionId}`);
+  if (!panel) return;
+  panel.classList.toggle('hidden');
+
+  if (!panel.classList.contains('hidden')) {
+    const q = appState.questions.find(q => q.id === questionId);
+    if (q && q.lastResults) {
+      panel.innerHTML = buildResultsHtml(q.lastResults);
+    } else {
+      // Load from server
+      fetch(`/admin/results/${questionId}`)
+        .then(r => r.json())
+        .then(results => {
+          const q2 = appState.questions.find(q => q.id === questionId);
+          if (q2) q2.lastResults = results;
+          panel.innerHTML = buildResultsHtml(results);
+        });
+    }
+  }
+}
+
+function showAdminResults(questionId, results) {
+  const panel = document.getElementById(`results-panel-${questionId}`);
+  if (panel) {
+    panel.classList.remove('hidden');
+    panel.innerHTML = buildResultsHtml(results);
+  }
+}
+
+/* ── Render ─────────────────────────────────────────────────────────────── */
+function renderQuestions() {
+  const container = document.getElementById('questions-list');
+
+  // Update active indicator in header
+  const hdrIndicator = document.getElementById('active-indicator-header');
+  if (appState.activeQuestionId) {
+    const aq = appState.questions.find(q => q.id === appState.activeQuestionId);
+    hdrIndicator.innerHTML = `<span class="active-indicator"><span class="dot"></span>Идёт голосование</span>`;
+  } else {
+    hdrIndicator.innerHTML = '';
+  }
+
+  let html = '';
+  appState.questions.forEach((q, idx) => {
+    const isActive = q.id === appState.activeQuestionId || q.status === 'active';
+    const isClosed = q.status === 'closed';
+
+    html += `<div class="question-admin-card ${isActive ? 'active' : ''} ${isClosed && !isActive ? 'closed' : ''}" id="qcard-${q.id}">`;
+
+    // Header
+    html += `<div class="question-admin-header">`;
+    html += `<div class="question-admin-meta">`;
+    html += `<div class="q-number">Вопрос ${idx + 1}</div>`;
+    html += `<div class="question-admin-type">${TYPE_LABELS[q.type] || q.type}</div>`;
+    html += `<div class="question-admin-text">${escHtml(q.text)}</div>`;
+    html += `</div>`;
+
+    // Actions
+    html += `<div class="question-admin-actions">`;
+
+    if (isActive) {
+      // Status + vote count + close button
+      html += `<span class="status-badge active"><span class="status-dot"></span>Активен</span>`;
+      html += `<span class="vote-counter">👥 <span id="vote-count-${q.id}">${q.voteCount || 0}</span></span>`;
+      html += `<button class="btn btn-danger btn-sm" onclick="closeQuestion('${q.id}')">Завершить</button>`;
+    } else if (isClosed) {
+      html += `<span class="status-badge closed"><span class="status-dot"></span>Завершён</span>`;
+      html += `<span class="vote-counter">👥 ${q.voteCount || 0}</span>`;
+      html += `<button class="btn btn-outline btn-sm" onclick="toggleAdminResults('${q.id}')">Результаты</button>`;
+      html += `<button class="btn btn-primary btn-sm" onclick="showResultsToAll('${q.id}')">Показать участникам</button>`;
+      html += `<button class="btn btn-success btn-sm" onclick="activateQuestion('${q.id}')">Открыть снова</button>`;
+      html += `<button class="btn btn-outline btn-sm" onclick="resetQuestion('${q.id}')">Сбросить</button>`;
+    } else {
+      // Inactive
+      html += `<span class="status-badge inactive"><span class="status-dot"></span>Неактивен</span>`;
+      if (!appState.activeQuestionId) {
+        html += `<button class="btn btn-success btn-sm" onclick="activateQuestion('${q.id}')">Запустить</button>`;
+      } else {
+        html += `<button class="btn btn-success btn-sm" disabled title="Сначала завершите активный вопрос">Запустить</button>`;
+      }
+    }
+
+    html += `</div>`; // actions
+    html += `</div>`; // header
+
+    // Results panel (collapsed by default)
+    html += `<div id="results-panel-${q.id}" class="admin-results-block hidden">`;
+    if (isClosed && q.lastResults) {
+      html += buildResultsHtml(q.lastResults);
+    }
+    html += `</div>`;
+
+    html += `</div>`; // card
+  });
+
+  container.innerHTML = html;
+}
+
+/* ── Results HTML Builder ───────────────────────────────────────────────── */
+function buildResultsHtml(results) {
+  if (!results) return '<p class="text-muted">Нет данных</p>';
+
+  let html = `<div style="margin-top:12px">`;
+  html += `<p class="results-count" style="margin-bottom:14px;">Всего ответов: <strong>${results.count || results.totalCount || 0}</strong></p>`;
+
+  if (results.type === 'open_text') {
+    if (!results.answers || results.answers.length === 0) {
+      html += `<p class="text-muted">Ответов нет.</p>`;
+    } else {
+      results.answers.forEach(ans => {
+        html += `<div class="open-text-answer">${escHtml(ans)}</div>`;
+      });
+    }
+  }
+
+  if (results.type === 'scale_multi') {
+    results.items.forEach(item => {
+      html += `<div class="result-item-section-admin">`;
+      html += `<div class="result-item-title">${escHtml(item.text)}</div>`;
+      html += `<div class="result-average">Среднее: ${item.average}</div>`;
+
+      const maxCount = Math.max(...Object.values(item.distribution), 1);
+      html += `<div class="bar-chart" style="margin-top:10px;">`;
+      for (let v = 1; v <= 7; v++) {
+        const cnt = item.distribution[v] || 0;
+        const pct = Math.round((cnt / maxCount) * 100);
+        html += `<div class="bar-row">
+          <span class="bar-label">${v}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <span class="bar-count">${cnt}</span>
+        </div>`;
+      }
+      html += `</div>`;
+
+      if (item.hasInput && item.textEntries && item.textEntries.length > 0) {
+        html += `<div class="text-entries" style="margin-top:10px;">
+          <div class="text-entries-title">Варианты «Другое»:</div>`;
+        item.textEntries.forEach(entry => {
+          html += `<div class="text-entry">
+            <span class="text-entry-text">${escHtml(entry.text)}</span>
+            <span class="text-entry-score">оценка: ${entry.value}</span>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
+    });
+  }
+
+  if (results.type === 'matrix') {
+    html += buildMatrixResultsHtml(results);
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function buildMatrixResultsHtml(results) {
+  const { rows, columns, sumMatrix, avgMatrix } = results;
+
+  function table(matrix, title) {
+    const allNums = matrix.flatMap(row => row.map(v => parseFloat(v) || 0));
+    const maxVal = Math.max(...allNums, 1);
+
+    let t = `<div class="matrix-results-section" style="margin-bottom:20px;">`;
+    t += `<h3 style="margin-bottom:10px;">${title}</h3>`;
+    t += `<div class="results-matrix-admin matrix-container"><table class="results-matrix-table">`;
+    t += `<thead><tr><th></th>`;
+    columns.forEach(col => { t += `<th>${escHtml(col)}</th>`; });
+    t += `</tr></thead><tbody>`;
+    rows.forEach((row, ri) => {
+      t += `<tr><td>${escHtml(row)}</td>`;
+      columns.forEach((_, ci) => {
+        const val = matrix[ri][ci];
+        const num = parseFloat(val) || 0;
+        const ratio = num / maxVal;
+        const bg = heatColor(ratio);
+        const textColor = ratio > 0.6 ? '#fff' : '#2d3748';
+        t += `<td style="background:${bg};color:${textColor}">${val}</td>`;
+      });
+      t += `</tr>`;
+    });
+    t += `</tbody></table></div></div>`;
+    return t;
+  }
+
+  return table(sumMatrix, 'Суммарные оценки') + table(avgMatrix, 'Средние оценки');
+}
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+function heatColor(ratio) {
+  const r = Math.round(255 + ratio * (39 - 255));
+  const g = Math.round(255 + ratio * (122 - 255));
+  const b = Math.round(255 + ratio * (73 - 255));
+  return `rgb(${r},${g},${b})`;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function showToast(msg, type = 'error') {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  if (type === 'success') {
+    t.style.background = 'var(--color-success)';
+  }
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+/* ── Init ───────────────────────────────────────────────────────────────── */
+checkAuth();
+</script>
+</body>
+</html>

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Интерактивное голосование</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="page-header">
+  <h1>Интерактивное голосование</h1>
+</header>
+
+<main class="main-content" id="app">
+
+  <!-- Waiting state -->
+  <div id="view-waiting" class="waiting-state">
+    <h2>Ожидайте следующий вопрос...</h2>
+    <div class="pulse-dot"><span></span><span></span><span></span></div>
+  </div>
+
+  <!-- Question form -->
+  <div id="view-question" class="hidden">
+    <div class="card question-card" id="question-container"></div>
+  </div>
+
+  <!-- Already voted -->
+  <div id="view-voted" class="hidden status-message">
+    <div class="status-icon">✅</div>
+    <h2>Ваш ответ принят</h2>
+    <p>Ожидайте завершения голосования и результатов.</p>
+  </div>
+
+  <!-- Results -->
+  <div id="view-results" class="hidden">
+    <div class="card results-card" id="results-container"></div>
+  </div>
+
+</main>
+
+<div class="matrix-popup" id="matrixPopup">
+  <div class="matrix-popup-title">Выберите оценку</div>
+  <div class="matrix-popup-values" id="matrixPopupValues"></div>
+</div>
+<div class="popup-overlay" id="popupOverlay"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* ── Utils ─────────────────────────────────────────────────────────────── */
+const VOTED_KEY = 'voting_answered';
+
+function getAnswered() {
+  try { return JSON.parse(localStorage.getItem(VOTED_KEY) || '{}'); } catch { return {}; }
+}
+
+function markAnswered(questionId) {
+  const data = getAnswered();
+  data[questionId] = true;
+  localStorage.setItem(VOTED_KEY, JSON.stringify(data));
+}
+
+function hasAnswered(questionId) {
+  return !!getAnswered()[questionId];
+}
+
+/* ── Views ─────────────────────────────────────────────────────────────── */
+const views = ['waiting','question','voted','results'];
+
+function showView(name) {
+  views.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('hidden', v !== name);
+  });
+}
+
+/* ── Scale Multi Renderer ──────────────────────────────────────────────── */
+function renderScaleMulti(q) {
+  const answers = {}; // { itemId: { value, text } }
+
+  let html = `<div class="question-text">${escHtml(q.text)}</div>`;
+  html += `<div class="scale-label">${escHtml(q.scaleLabel)}</div>`;
+
+  q.items.forEach(item => {
+    answers[item.id] = { value: null, text: '' };
+    html += `<div class="scale-item" id="si-${item.id}">`;
+    html += `<div class="scale-item-text">${escHtml(item.text)}</div>`;
+    if (item.hasInput) {
+      html += `<div class="scale-item-other-input">
+        <input type="text" class="form-input" id="other-${item.id}"
+          placeholder="Введите свой вариант" maxlength="500"
+          oninput="updateOtherText('${item.id}', this.value)">
+      </div>`;
+    }
+    html += `<div class="scale-buttons" id="sb-${item.id}">`;
+    for (let v = 1; v <= 7; v++) {
+      html += `<button class="scale-btn" data-item="${item.id}" data-val="${v}"
+        onclick="selectScale('${item.id}', ${v})">${v}</button>`;
+    }
+    html += `</div></div>`;
+  });
+
+  html += `<div class="mt-3">
+    <button class="btn btn-primary btn-lg" id="submit-btn" disabled onclick="submitScaleMulti()">
+      Отправить ответ
+    </button>
+  </div>`;
+
+  const container = document.getElementById('question-container');
+  container.innerHTML = html;
+
+  window._scaleAnswers = answers;
+  window._scaleQuestion = q;
+}
+
+function selectScale(itemId, val) {
+  window._scaleAnswers[itemId].value = val;
+  // Update UI
+  document.querySelectorAll(`.scale-btn[data-item="${itemId}"]`).forEach(btn => {
+    btn.classList.toggle('selected', parseInt(btn.dataset.val) === val);
+  });
+  checkScaleComplete();
+}
+
+function updateOtherText(itemId, text) {
+  window._scaleAnswers[itemId].text = text;
+}
+
+function checkScaleComplete() {
+  const allFilled = Object.values(window._scaleAnswers).every(a => a.value !== null);
+  document.getElementById('submit-btn').disabled = !allFilled;
+}
+
+function submitScaleMulti() {
+  const q = window._scaleQuestion;
+  socket.emit('submit_answer', {
+    questionId: q.id,
+    answer: { items: window._scaleAnswers }
+  }, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+    markAnswered(q.id);
+    showView('voted');
+  });
+}
+
+/* ── Open Text Renderer ────────────────────────────────────────────────── */
+function renderOpenText(q) {
+  const html = `
+    <div class="question-text">${escHtml(q.text)}</div>
+    <div class="form-group">
+      <textarea class="form-textarea" id="open-text-input" maxlength="2000"
+        placeholder="Введите ваш ответ здесь..."
+        rows="6" oninput="onTextInput(this)"></textarea>
+      <div class="char-count"><span id="char-count">0</span> / 2000</div>
+    </div>
+    <button class="btn btn-primary btn-lg" id="submit-btn" disabled onclick="submitOpenText()">
+      Отправить ответ
+    </button>
+  `;
+  document.getElementById('question-container').innerHTML = html;
+  window._openTextQuestion = q;
+}
+
+function onTextInput(el) {
+  const len = el.value.length;
+  document.getElementById('char-count').textContent = len;
+  document.getElementById('submit-btn').disabled = len === 0;
+}
+
+function submitOpenText() {
+  const q = window._openTextQuestion;
+  const text = document.getElementById('open-text-input').value.trim();
+  if (!text) return;
+
+  socket.emit('submit_answer', {
+    questionId: q.id,
+    answer: { text }
+  }, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+    markAnswered(q.id);
+    showView('voted');
+  });
+}
+
+/* ── Matrix Renderer ───────────────────────────────────────────────────── */
+let matrixData = {};
+let activeCell = null;
+
+function renderMatrix(q) {
+  matrixData = {};
+  q.rows.forEach((_, ri) => {
+    matrixData[ri] = {};
+    q.columns.forEach((_, ci) => { matrixData[ri][ci] = null; });
+  });
+
+  let html = `<div class="question-text">${escHtml(q.text)}</div>`;
+  if (q.matrixDescription) {
+    html += `<div class="matrix-description">${escHtml(q.matrixDescription)}</div>`;
+  }
+  html += `<div class="matrix-container"><table class="matrix-table">`;
+  html += `<thead><tr><th></th>`;
+  q.columns.forEach(col => { html += `<th>${escHtml(col)}</th>`; });
+  html += `</tr></thead><tbody>`;
+  q.rows.forEach((row, ri) => {
+    html += `<tr><td>${escHtml(row)}</td>`;
+    q.columns.forEach((_, ci) => {
+      html += `<td class="matrix-cell" id="mc-${ri}-${ci}"
+        onclick="openMatrixPopup(${ri}, ${ci}, this)">
+        <span class="matrix-cell-value" id="mcv-${ri}-${ci}">—</span>
+      </td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  html += `<p class="text-muted mt-1">Нажмите на ячейку для выбора оценки</p>`;
+  html += `<div class="mt-2">
+    <button class="btn btn-primary btn-lg" id="submit-btn" disabled onclick="submitMatrix()">
+      Отправить ответ
+    </button>
+  </div>`;
+
+  document.getElementById('question-container').innerHTML = html;
+  window._matrixQuestion = q;
+
+  // Populate popup values
+  const popupVals = document.getElementById('matrixPopupValues');
+  popupVals.innerHTML = '';
+  q.cellValues.forEach(val => {
+    const btn = document.createElement('button');
+    btn.className = 'matrix-popup-value';
+    btn.textContent = val;
+    btn.onclick = () => selectMatrixValue(val);
+    popupVals.appendChild(btn);
+  });
+
+  document.getElementById('popupOverlay').addEventListener('click', closeMatrixPopup);
+}
+
+function openMatrixPopup(ri, ci, cellEl) {
+  activeCell = { ri, ci };
+  const popup = document.getElementById('matrixPopup');
+  const overlay = document.getElementById('popupOverlay');
+  const rect = cellEl.getBoundingClientRect();
+
+  popup.style.top = (window.scrollY + rect.bottom + 6) + 'px';
+  popup.style.left = Math.min(rect.left, window.innerWidth - 180) + 'px';
+  popup.classList.add('visible');
+  overlay.classList.add('visible');
+}
+
+function closeMatrixPopup() {
+  document.getElementById('matrixPopup').classList.remove('visible');
+  document.getElementById('popupOverlay').classList.remove('visible');
+  activeCell = null;
+}
+
+function selectMatrixValue(val) {
+  if (!activeCell) return;
+  const { ri, ci } = activeCell;
+  matrixData[ri][ci] = val;
+
+  const cellEl = document.getElementById(`mc-${ri}-${ci}`);
+  const valEl  = document.getElementById(`mcv-${ri}-${ci}`);
+  cellEl.classList.add('filled');
+  valEl.textContent = val;
+
+  closeMatrixPopup();
+  checkMatrixComplete();
+}
+
+function checkMatrixComplete() {
+  const q = window._matrixQuestion;
+  const allFilled = q.rows.every((_, ri) =>
+    q.columns.every((_, ci) => matrixData[ri][ci] !== null)
+  );
+  document.getElementById('submit-btn').disabled = !allFilled;
+}
+
+function submitMatrix() {
+  const q = window._matrixQuestion;
+  const matrix = q.rows.map((_, ri) => q.columns.map((_, ci) => matrixData[ri][ci]));
+
+  socket.emit('submit_answer', {
+    questionId: q.id,
+    answer: { matrix }
+  }, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+    markAnswered(q.id);
+    showView('voted');
+  });
+}
+
+/* ── Results Renderer ──────────────────────────────────────────────────── */
+function renderResults(results) {
+  const container = document.getElementById('results-container');
+  let html = `<div class="results-header"><h2>Результаты голосования</h2></div>`;
+  html += `<p class="results-count">Проголосовали: <strong>${results.count || results.totalCount || 0}</strong> участников</p>`;
+  html += `<div class="question-text" style="margin-bottom:20px;">${escHtml(results.questionText || '')}</div>`;
+
+  if (results.type === 'open_text') {
+    if (!results.answers || results.answers.length === 0) {
+      html += `<p class="text-muted">Ответов пока нет.</p>`;
+    } else {
+      results.answers.forEach(ans => {
+        html += `<div class="open-text-answer">${escHtml(ans)}</div>`;
+      });
+    }
+  }
+
+  if (results.type === 'scale_multi') {
+    results.items.forEach(item => {
+      html += `<div class="result-item-section">`;
+      html += `<div class="result-item-title">${escHtml(item.text)}</div>`;
+      html += `<div class="result-average">Среднее: ${item.average}</div>`;
+
+      const maxCount = Math.max(...Object.values(item.distribution), 1);
+      html += `<div class="bar-chart">`;
+      for (let v = 1; v <= 7; v++) {
+        const cnt = item.distribution[v] || 0;
+        const pct = Math.round((cnt / maxCount) * 100);
+        html += `<div class="bar-row">
+          <span class="bar-label">${v}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <span class="bar-count">${cnt}</span>
+        </div>`;
+      }
+      html += `</div>`;
+
+      if (item.hasInput && item.textEntries && item.textEntries.length > 0) {
+        html += `<div class="text-entries">
+          <div class="text-entries-title">Варианты «Другое»:</div>`;
+        item.textEntries.forEach(entry => {
+          html += `<div class="text-entry">
+            <span class="text-entry-text">${escHtml(entry.text)}</span>
+            <span class="text-entry-score">оценка: ${entry.value}</span>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+    });
+  }
+
+  if (results.type === 'matrix') {
+    html += renderMatrixResults(results);
+  }
+
+  container.innerHTML = html;
+  showView('results');
+}
+
+function renderMatrixResults(results) {
+  const { rows, columns, sumMatrix, avgMatrix } = results;
+
+  function matrixTable(matrix, title) {
+    const allNums = matrix.flatMap(row => row.map(v => parseFloat(v) || 0));
+    const maxVal = Math.max(...allNums, 1);
+
+    let t = `<div class="matrix-results-section">`;
+    t += `<h3>${title}</h3>`;
+    t += `<div class="matrix-container"><table class="results-matrix-table"><thead><tr><th></th>`;
+    columns.forEach(col => { t += `<th>${escHtml(col)}</th>`; });
+    t += `</tr></thead><tbody>`;
+    rows.forEach((row, ri) => {
+      t += `<tr><td>${escHtml(row)}</td>`;
+      columns.forEach((_, ci) => {
+        const val = matrix[ri][ci];
+        const num = parseFloat(val) || 0;
+        const ratio = num / maxVal;
+        const bg = heatColor(ratio);
+        const textColor = ratio > 0.6 ? '#fff' : '#2d3748';
+        t += `<td style="background:${bg};color:${textColor}">${val}</td>`;
+      });
+      t += `</tr>`;
+    });
+    t += `</tbody></table></div></div>`;
+    return t;
+  }
+
+  return matrixTable(sumMatrix, 'Суммарные оценки') +
+         matrixTable(avgMatrix, 'Средние оценки');
+}
+
+function heatColor(ratio) {
+  // From white (255,255,255) to dark green (39,122,73)
+  const r = Math.round(255 + ratio * (39 - 255));
+  const g = Math.round(255 + ratio * (122 - 255));
+  const b = Math.round(255 + ratio * (73 - 255));
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ── Question Loader ───────────────────────────────────────────────────── */
+function loadQuestion(q) {
+  if (!q) { showView('waiting'); return; }
+
+  if (hasAnswered(q.id)) {
+    showView('voted');
+    return;
+  }
+
+  showView('question');
+  if (q.type === 'scale_multi') renderScaleMulti(q);
+  else if (q.type === 'open_text') renderOpenText(q);
+  else if (q.type === 'matrix') renderMatrix(q);
+}
+
+/* ── Helper ────────────────────────────────────────────────────────────── */
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+/* ── Socket.IO ─────────────────────────────────────────────────────────── */
+const socket = io();
+
+socket.on('connect', () => {});
+
+socket.on('initial_state', ({ activeQuestionId, activeQuestion }) => {
+  if (activeQuestion) {
+    loadQuestion(activeQuestion);
+  } else {
+    showView('waiting');
+  }
+});
+
+socket.on('question_activated', ({ question }) => {
+  loadQuestion(question);
+});
+
+socket.on('question_closed', ({ questionId, results }) => {
+  // If user already answered this question, show results directly
+  // If user was waiting, show results too
+  renderResults(results);
+});
+</script>
+</body>
+</html>
