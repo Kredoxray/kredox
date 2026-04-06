@@ -297,6 +297,13 @@ io.on('connection', (socket) => {
     callback && callback({ success: true });
   });
 
+  // ── Admin: reset localStorage on all clients ──────────────────────────────
+  socket.on('reset_client_votes', (data, callback) => {
+    if (!isAdmin(socket)) return callback && callback({ error: 'Unauthorized' });
+    io.emit('clear_local_storage');
+    callback && callback({ success: true });
+  });
+
   // ── Client: submit answer ─────────────────────────────────────────────────
   socket.on('submit_answer', (data, callback) => {
     const { questionId, answer } = data;
