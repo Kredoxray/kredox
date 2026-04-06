@@ -445,6 +445,11 @@ socket.on('question_closed', ({ questionId, results }) => {
   // If user was waiting, show results too
   renderResults(results);
 });
+
+socket.on('clear_local_storage', () => {
+  localStorage.removeItem('voting_answered');
+  showView('waiting');
+});
 </script>
 </body>
 </html>

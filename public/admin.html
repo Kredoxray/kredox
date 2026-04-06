@@ -74,6 +74,7 @@
     <div class="admin-toolbar">
       <h2>Вопросы</h2>
       <div class="btn-group">
+        <button class="btn btn-danger btn-sm" onclick="resetAllClientVotes()">Сбросить голоса у участников</button>
         <button class="btn btn-outline btn-sm" onclick="doLogout()">Выйти</button>
       </div>
     </div>
@@ -201,6 +202,14 @@ function showResultsToAll(questionId) {
   socket.emit('show_results', { questionId }, (res) => {
     if (res && res.error) { showToast(res.error); return; }
     showToast('Результаты показаны участникам', 'success');
+  });
+}
+
+function resetAllClientVotes() {
+  if (!confirm('Сбросить историю голосования у всех участников? Они смогут проголосовать заново.')) return;
+  socket.emit('reset_client_votes', {}, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+    showToast('Голоса участников сброшены', 'success');
   });
 }
 
