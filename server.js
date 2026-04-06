@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const session = require('express-session');
+const XLSX = require('xlsx');
 const path = require('path');
 const questions = require('./questions');
 
@@ -320,6 +321,72 @@ io.on('connection', (socket) => {
 
     callback && callback({ success: true });
   });
+});
+
+// ── Excel Export ─────────────────────────────────────────────────────────────
+app.get('/admin/export', (req, res) => {
+  if (!(req.session && req.session.isAdmin)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  questions.forEach((q, idx) => {
+    const results = computeResults(q.id);
+    const sheetName = `Вопрос ${idx + 1}`.substring(0, 31);
+    const rows = [];
+
+    // Question text header
+    rows.push([q.text]);
+    rows.push([`Ответов: ${results.totalCount || results.count || 0}`]);
+    rows.push([]);
+
+    if (results.type === 'open_text') {
+      rows.push(['Ответы участников']);
+      (results.answers || []).forEach(ans => rows.push([ans]));
+    }
+
+    if (results.type === 'scale_multi') {
+      results.items.forEach(item => {
+        rows.push([item.text]);
+        rows.push([`Среднее: ${item.average}`, `Ответов: ${item.count}`]);
+        rows.push(['Оценка', 'Количество']);
+        for (let v = 1; v <= 7; v++) {
+          rows.push([v, item.distribution[v] || 0]);
+        }
+        if (item.hasInput && item.textEntries && item.textEntries.length > 0) {
+          rows.push([]);
+          rows.push(['Варианты «Другое»', 'Оценка']);
+          item.textEntries.forEach(e => rows.push([e.text, e.value]));
+        }
+        rows.push([]);
+      });
+    }
+
+    if (results.type === 'matrix') {
+      const { rows: rNames, columns: cNames, sumMatrix, avgMatrix } = results;
+
+      rows.push(['Суммарные оценки']);
+      rows.push(['', ...cNames]);
+      rNames.forEach((r, ri) => rows.push([r, ...sumMatrix[ri]]));
+      rows.push([]);
+
+      rows.push(['Средние оценки']);
+      rows.push(['', ...cNames]);
+      rNames.forEach((r, ri) => rows.push([r, ...avgMatrix[ri]]));
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    // Auto column width
+    ws['!cols'] = [{ wch: 60 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const date = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Disposition', `attachment; filename="results-${date}.xlsx"`);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
 });
 
 // ── Start ────────────────────────────────────────────────────────────────────
