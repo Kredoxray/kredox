@@ -72,6 +72,7 @@ function showView(name) {
     const el = document.getElementById('view-' + v);
     if (el) el.classList.toggle('hidden', v !== name);
   });
+  document.body.classList.toggle('results-mode', name === 'results');
 }
 
 /* ── Scale Multi Renderer ──────────────────────────────────────────────── */
@@ -295,23 +296,35 @@ function renderResults(results) {
   const container = document.getElementById('results-container');
   let html = `<div class="results-header"><h2>Результаты голосования</h2></div>`;
   html += `<p class="results-count">Проголосовали: <strong>${results.count || results.totalCount || 0}</strong> участников</p>`;
-  html += `<div class="question-text" style="margin-bottom:20px;">${escHtml(results.questionText || '')}</div>`;
+  html += `<div class="question-text">${escHtml(results.questionText || '')}</div>`;
 
   if (results.type === 'open_text') {
     if (!results.answers || results.answers.length === 0) {
       html += `<p class="text-muted">Ответов пока нет.</p>`;
     } else {
-      results.answers.forEach(ans => {
-        html += `<div class="open-text-answer">${escHtml(ans)}</div>`;
+      const many = results.answers.length > 15 ? ' many' : '';
+      html += `<div class="statements-cloud${many}">`;
+      results.answers.forEach((ans, idx) => {
+        const variant = 'v' + ((idx % 6) + 1);
+        const len = (ans || '').length;
+        let sizeClass = '';
+        if (len > 180) sizeClass = ' size-lg';
+        else if (len < 40) sizeClass = ' size-sm';
+        html += `<div class="statement-card ${variant}${sizeClass}">${escHtml(ans)}</div>`;
       });
+      html += `</div>`;
     }
   }
 
   if (results.type === 'scale_multi') {
+    const n = results.items.length;
+    html += `<div class="scale-grid items-${n}">`;
     results.items.forEach(item => {
-      html += `<div class="result-item-section">`;
-      html += `<div class="result-item-title">${escHtml(item.text)}</div>`;
-      html += `<div class="result-average">Среднее: ${item.average}</div>`;
+      html += `<div class="scale-card">`;
+      html += `<div class="scale-card-header">`;
+      html += `<div class="scale-card-title">${escHtml(item.text)}</div>`;
+      html += `<div class="scale-card-avg">${item.average}</div>`;
+      html += `</div>`;
 
       const maxCount = Math.max(...Object.values(item.distribution), 1);
       html += `<div class="bar-chart">`;
@@ -328,11 +341,11 @@ function renderResults(results) {
 
       if (item.hasInput && item.textEntries && item.textEntries.length > 0) {
         html += `<div class="text-entries">
-          <div class="text-entries-title">Варианты «Другое»:</div>`;
+          <div class="text-entries-title">«Другое»:</div>`;
         item.textEntries.forEach(entry => {
           html += `<div class="text-entry">
             <span class="text-entry-text">${escHtml(entry.text)}</span>
-            <span class="text-entry-score">оценка: ${entry.value}</span>
+            <span class="text-entry-score">${entry.value}</span>
           </div>`;
         });
         html += `</div>`;
@@ -340,6 +353,7 @@ function renderResults(results) {
 
       html += `</div>`;
     });
+    html += `</div>`;
   }
 
   if (results.type === 'matrix') {
@@ -378,8 +392,10 @@ function renderMatrixResults(results) {
     return t;
   }
 
-  return matrixTable(sumMatrix, 'Суммарные оценки') +
-         matrixTable(avgMatrix, 'Средние оценки');
+  return `<div class="matrix-grid">` +
+         matrixTable(sumMatrix, 'Суммарные оценки') +
+         matrixTable(avgMatrix, 'Средние оценки') +
+         `</div>`;
 }
 
 function heatColor(ratio) {
