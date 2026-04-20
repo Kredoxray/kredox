@@ -1062,4 +1062,42 @@ body.results-mode .results-matrix-table td {
   .scale-grid.items-5,
   .scale-grid.items-6 { grid-template-columns: 1fr; }
   .matrix-grid { grid-template-columns: 1fr; }
+
+  /* Matrix fits within narrow screens */
+  .matrix-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  .results-matrix-table {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+    font-size: 0.7rem;
+    overflow: visible;
+  }
+  .results-matrix-table th,
+  .results-matrix-table td {
+    padding: 5px 3px !important;
+    word-break: break-word;
+    hyphens: auto;
+    font-size: 0.7rem !important;
+    line-height: 1.15;
+  }
+  .results-matrix-table th {
+    font-size: 0.62rem !important;
+    font-weight: 600;
+  }
+  .results-matrix-table td {
+    font-size: 0.85rem !important;
+    font-weight: 700;
+  }
+  .results-matrix-table td:first-child {
+    font-size: 0.65rem !important;
+    font-weight: 500;
+  }
+  body.results-mode .matrix-results-section h3 {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+  }
 }
