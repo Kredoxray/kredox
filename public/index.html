@@ -243,10 +243,31 @@ function openMatrixPopup(ri, ci, cellEl) {
   const overlay = document.getElementById('popupOverlay');
   const rect = cellEl.getBoundingClientRect();
 
-  popup.style.top = (window.scrollY + rect.bottom + 6) + 'px';
-  popup.style.left = Math.min(rect.left, window.innerWidth - 180) + 'px';
+  // Show popup, measure its height, then position it
+  popup.style.visibility = 'hidden';
   popup.classList.add('visible');
   overlay.classList.add('visible');
+
+  const popupH = popup.offsetHeight || 120;
+  const popupW = popup.offsetWidth || 180;
+  const margin = 8;
+
+  // Prefer below, fallback to above
+  let top;
+  if (rect.bottom + margin + popupH <= window.innerHeight) {
+    top = rect.bottom + margin;
+  } else {
+    top = Math.max(margin, rect.top - popupH - margin);
+  }
+
+  const left = Math.min(
+    Math.max(margin, rect.left),
+    window.innerWidth - popupW - margin
+  );
+
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+  popup.style.visibility = '';
 }
 
 function closeMatrixPopup() {
