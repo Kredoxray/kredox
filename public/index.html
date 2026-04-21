@@ -386,37 +386,48 @@ function renderResults(results) {
 }
 
 function renderMatrixResults(results) {
-  const { rows, columns, sumMatrix, avgMatrix } = results;
+  const { rows, columns, avgMatrix } = results;
 
-  function matrixTable(matrix, title) {
-    const allNums = matrix.flatMap(row => row.map(v => parseFloat(v) || 0));
-    const maxVal = Math.max(...allNums, 1);
+  // Compute integral score per column (sum of averages)
+  const integralRow = columns.map((_, ci) =>
+    avgMatrix.reduce((sum, row) => sum + (parseFloat(row[ci]) || 0), 0)
+  );
+  const integralMax = Math.max(...integralRow, 1);
 
-    let t = `<div class="matrix-results-section">`;
-    t += `<h3>${title}</h3>`;
-    t += `<div class="matrix-container"><table class="results-matrix-table"><thead><tr><th></th>`;
-    columns.forEach(col => { t += `<th>${escHtml(col)}</th>`; });
-    t += `</tr></thead><tbody>`;
-    rows.forEach((row, ri) => {
-      t += `<tr><td>${escHtml(row)}</td>`;
-      columns.forEach((_, ci) => {
-        const val = matrix[ri][ci];
-        const num = parseFloat(val) || 0;
-        const ratio = num / maxVal;
-        const bg = heatColor(ratio);
-        const textColor = ratio > 0.6 ? '#fff' : '#2d3748';
-        t += `<td style="background:${bg};color:${textColor}">${val}</td>`;
-      });
-      t += `</tr>`;
+  const allNums = avgMatrix.flatMap(row => row.map(v => parseFloat(v) || 0));
+  const maxVal = Math.max(...allNums, ...integralRow, 1);
+
+  let t = `<div class="matrix-results-section">`;
+  t += `<h3>Средние оценки</h3>`;
+  t += `<div class="matrix-container"><table class="results-matrix-table"><thead><tr><th></th>`;
+  columns.forEach(col => { t += `<th>${escHtml(col)}</th>`; });
+  t += `</tr></thead><tbody>`;
+
+  rows.forEach((row, ri) => {
+    t += `<tr><td>${escHtml(row)}</td>`;
+    columns.forEach((_, ci) => {
+      const val = avgMatrix[ri][ci];
+      const num = parseFloat(val) || 0;
+      const ratio = num / maxVal;
+      const bg = heatColor(ratio);
+      const textColor = ratio > 0.6 ? '#fff' : '#2d3748';
+      t += `<td style="background:${bg};color:${textColor}">${val}</td>`;
     });
-    t += `</tbody></table></div></div>`;
-    return t;
-  }
+    t += `</tr>`;
+  });
 
-  return `<div class="matrix-grid">` +
-         matrixTable(sumMatrix, 'Суммарные оценки') +
-         matrixTable(avgMatrix, 'Средние оценки') +
-         `</div>`;
+  // Integral row
+  t += `<tr class="matrix-integral-row"><td>Интегральный балл</td>`;
+  integralRow.forEach(val => {
+    const ratio = val / integralMax;
+    const bg = heatColor(ratio);
+    const textColor = ratio > 0.6 ? '#fff' : '#2d3748';
+    t += `<td style="background:${bg};color:${textColor}">${val.toFixed(2)}</td>`;
+  });
+  t += `</tr>`;
+
+  t += `</tbody></table></div></div>`;
+  return t;
 }
 
 function heatColor(ratio) {

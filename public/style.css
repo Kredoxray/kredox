@@ -652,6 +652,17 @@ h3 { font-size: 1.1rem; }
   background: #f0f4f8 !important;
 }
 
+.matrix-integral-row td {
+  border-top: 2px solid var(--color-primary) !important;
+  font-weight: 700 !important;
+}
+
+.matrix-integral-row td:first-child {
+  font-weight: 700 !important;
+  font-size: 0.83rem;
+  background: #dce6f0 !important;
+}
+
 /* ── Admin Styles ──────────────────────────────────────────────────────────── */
 .login-page {
   display: flex;
