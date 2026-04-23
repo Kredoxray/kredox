@@ -1028,10 +1028,6 @@ body.results-mode .results-scale-label {
   font-weight: 600;
   line-height: 1.4;
   color: var(--color-text);
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .scale-card-avg {
   flex-shrink: 0;
