@@ -135,6 +135,7 @@ function computeResults(questionId) {
     return {
       type: 'matrix',
       questionText: question.text,
+      matrixDescription: question.matrixDescription || null,
       rows,
       columns: cols,
       sumMatrix,

@@ -318,6 +318,12 @@ function renderResults(results) {
   let html = `<div class="results-header"><h2>Результаты голосования</h2></div>`;
   html += `<p class="results-count">Проголосовали: <strong>${results.count || results.totalCount || 0}</strong> участников</p>`;
   html += `<div class="question-text">${escHtml(results.questionText || '')}</div>`;
+  if (results.scaleLabel) {
+    html += `<div class="scale-label results-scale-label">${escHtml(results.scaleLabel)}</div>`;
+  }
+  if (results.matrixDescription) {
+    html += `<div class="scale-label results-scale-label">${escHtml(results.matrixDescription)}</div>`;
+  }
 
   if (results.type === 'open_text') {
     if (!results.answers || results.answers.length === 0) {
