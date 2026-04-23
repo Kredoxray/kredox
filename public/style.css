@@ -663,6 +663,122 @@ h3 { font-size: 1.1rem; }
   background: #dce6f0 !important;
 }
 
+/* ── Single Choice ─────────────────────────────────────────────────────────── */
+.choice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.choice-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.choice-option:hover {
+  border-color: var(--color-accent);
+  background: #ebf4ff;
+  box-shadow: var(--shadow-sm);
+}
+
+.choice-option.selected {
+  border-color: var(--color-accent);
+  background: #ebf4ff;
+  box-shadow: 0 0 0 3px rgba(49,130,206,0.18);
+}
+
+.choice-check {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-white);
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+
+.choice-check.checked {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.choice-check.checked::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.choice-text {
+  flex: 1;
+}
+
+/* Single choice results */
+.choice-results {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.choice-result-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.choice-result-text {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.choice-result-bar-wrap {
+  background: #e2e8f0;
+  border-radius: 6px;
+  height: 28px;
+  overflow: hidden;
+}
+
+.choice-result-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  border-radius: 6px;
+  transition: width 0.6s ease;
+  min-width: 4px;
+}
+
+.choice-result-stat {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: right;
+}
+
+.choice-result-pct {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-light);
+}
+
 /* ── Admin Styles ──────────────────────────────────────────────────────────── */
 .login-page {
   display: flex;

@@ -325,6 +325,27 @@ function renderResults(results) {
     html += `<div class="scale-label results-scale-label">${escHtml(results.matrixDescription)}</div>`;
   }
 
+  if (results.type === 'single_choice') {
+    if (!results.options || results.options.length === 0) {
+      html += `<p class="text-muted">Ответов пока нет.</p>`;
+    } else {
+      const maxCount = Math.max(...results.options.map(o => o.count), 1);
+      html += `<div class="choice-results">`;
+      results.options.forEach(opt => {
+        const pct = opt.pct;
+        const barPct = Math.round((opt.count / maxCount) * 100);
+        html += `<div class="choice-result-row">
+          <div class="choice-result-text">${escHtml(opt.text)}</div>
+          <div class="choice-result-bar-wrap">
+            <div class="choice-result-bar" style="width:${barPct}%"></div>
+          </div>
+          <div class="choice-result-stat">${opt.count} <span class="choice-result-pct">(${pct}%)</span></div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+  }
+
   if (results.type === 'open_text') {
     if (!results.answers || results.answers.length === 0) {
       html += `<p class="text-muted">Ответов пока нет.</p>`;
@@ -444,6 +465,49 @@ function heatColor(ratio) {
   return `rgb(${r},${g},${b})`;
 }
 
+/* ── Single Choice Renderer ────────────────────────────────────────────── */
+function renderSingleChoice(q) {
+  let html = `<div class="question-text">${escHtml(q.text)}</div>`;
+  html += `<div class="choice-options" id="choice-options">`;
+  q.options.forEach(opt => {
+    html += `<div class="choice-option" id="co-${opt.id}" onclick="selectChoice('${opt.id}')">
+      <div class="choice-check" id="cc-${opt.id}"></div>
+      <div class="choice-text">${escHtml(opt.text)}</div>
+    </div>`;
+  });
+  html += `</div>`;
+  html += `<div class="mt-3">
+    <button class="btn btn-primary btn-lg" id="submit-btn" disabled onclick="submitSingleChoice()">
+      Отправить ответ
+    </button>
+  </div>`;
+  document.getElementById('question-container').innerHTML = html;
+  window._choiceQuestion = q;
+  window._selectedChoice = null;
+}
+
+function selectChoice(optionId) {
+  window._selectedChoice = optionId;
+  document.querySelectorAll('.choice-option').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.choice-check').forEach(el => el.classList.remove('checked'));
+  document.getElementById('co-' + optionId).classList.add('selected');
+  document.getElementById('cc-' + optionId).classList.add('checked');
+  document.getElementById('submit-btn').disabled = false;
+}
+
+function submitSingleChoice() {
+  const q = window._choiceQuestion;
+  if (!window._selectedChoice) return;
+  socket.emit('submit_answer', {
+    questionId: q.id,
+    answer: { optionId: window._selectedChoice }
+  }, (res) => {
+    if (res && res.error) { showToast(res.error); return; }
+    markAnswered(q.id);
+    showView('voted');
+  });
+}
+
 /* ── Question Loader ───────────────────────────────────────────────────── */
 function loadQuestion(q) {
   if (!q) { showView('waiting'); return; }
@@ -457,6 +521,7 @@ function loadQuestion(q) {
   if (q.type === 'scale_multi') renderScaleMulti(q);
   else if (q.type === 'open_text') renderOpenText(q);
   else if (q.type === 'matrix') renderMatrix(q);
+  else if (q.type === 'single_choice') renderSingleChoice(q);
 }
 
 /* ── Helper ────────────────────────────────────────────────────────────── */

@@ -66,6 +66,24 @@ function computeResults(questionId) {
     };
   }
 
+  if (question.type === 'single_choice') {
+    const counts = {};
+    question.options.forEach(o => { counts[o.id] = 0; });
+    answers.forEach(a => { if (a.optionId && counts[a.optionId] !== undefined) counts[a.optionId]++; });
+    const total = answers.length;
+    return {
+      type: 'single_choice',
+      questionText: question.text,
+      options: question.options.map(o => ({
+        id: o.id,
+        text: o.text,
+        count: counts[o.id],
+        pct: total > 0 ? Math.round((counts[o.id] / total) * 100) : 0
+      })),
+      totalCount: total
+    };
+  }
+
   if (question.type === 'scale_multi') {
     const itemResults = question.items.map(item => {
       const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
@@ -153,6 +171,7 @@ function getPublicQuestion(q) {
     text: q.text,
     scaleLabel: q.scaleLabel || null,
     items: q.items || null,
+    options: q.options || null,
     matrixDescription: q.matrixDescription || null,
     rows: q.rows || null,
     columns: q.columns || null,
@@ -341,6 +360,11 @@ app.get('/admin/export', (req, res) => {
     rows.push([q.text]);
     rows.push([`Ответов: ${results.totalCount || results.count || 0}`]);
     rows.push([]);
+
+    if (results.type === 'single_choice') {
+      rows.push(['Вариант', 'Голосов', '%']);
+      results.options.forEach(o => rows.push([o.text, o.count, o.pct + '%']));
+    }
 
     if (results.type === 'open_text') {
       rows.push(['Ответы участников']);
