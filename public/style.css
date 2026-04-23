@@ -895,13 +895,15 @@ body.results-mode .results-count {
   margin-bottom: 6px;
 }
 body.results-mode .question-text {
-  font-size: 1rem;
+  font-size: 0.92rem;
   margin-bottom: 14px;
   padding: 8px 14px;
   background: #ebf4ff;
   border-left: 3px solid var(--color-accent);
   border-radius: var(--radius-sm);
   line-height: 1.4;
+  white-space: normal;
+  overflow: visible;
 }
 
 /* Scale Multi — grid of compact cards */
@@ -914,7 +916,13 @@ body.results-mode .question-text {
   align-content: start;
 }
 .scale-grid.items-2 { grid-template-columns: repeat(2, 1fr); }
-.scale-grid.items-3 { grid-template-columns: repeat(3, 1fr); }
+.scale-grid.items-3 { grid-template-columns: repeat(2, 1fr); }
+.scale-grid.items-3 .scale-card:nth-child(3) {
+  grid-column: 1 / -1;
+  max-width: calc(50% - 7px);
+  margin-left: auto;
+  margin-right: auto;
+}
 .scale-grid.items-4 { grid-template-columns: repeat(2, 1fr); }
 .scale-grid.items-5,
 .scale-grid.items-6 { grid-template-columns: repeat(3, 1fr); }
