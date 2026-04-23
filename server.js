@@ -41,6 +41,7 @@ const state = {
   questionStatuses: {},   // 'inactive' | 'active' | 'closed'
   answers: {},            // { questionId: [answer, ...] }
   lastResults: {},        // { questionId: computedResults }
+  shownResults: null,     // results currently displayed to participants
   sessionId: Date.now().toString()
 };
 
@@ -249,6 +250,7 @@ io.on('connection', (socket) => {
   socket.emit('initial_state', {
     activeQuestionId: state.activeQuestionId,
     activeQuestion: activeQ ? getPublicQuestion(activeQ) : null,
+    shownResults: state.shownResults || null,
     sessionId: state.sessionId
   });
 
@@ -267,6 +269,7 @@ io.on('connection', (socket) => {
 
     state.activeQuestionId = questionId;
     state.questionStatuses[questionId] = 'active';
+    state.shownResults = null;
 
     io.emit('question_activated', { question: getPublicQuestion(question) });
 
@@ -293,6 +296,7 @@ io.on('connection', (socket) => {
 
     const results = computeResults(questionId);
     state.lastResults[questionId] = results;
+    state.shownResults = results;
 
     io.emit('question_closed', { questionId, results });
 
@@ -305,6 +309,7 @@ io.on('connection', (socket) => {
 
     const { questionId } = data;
     const results = state.lastResults[questionId] || computeResults(questionId);
+    state.shownResults = results;
 
     io.emit('question_closed', { questionId, results });
 
@@ -330,6 +335,7 @@ io.on('connection', (socket) => {
   socket.on('reset_client_votes', (data, callback) => {
     if (!isAdmin(socket)) return callback && callback({ error: 'Unauthorized' });
     state.sessionId = Date.now().toString();
+    state.shownResults = null;
     io.emit('clear_local_storage');
     io.emit('session_updated', { sessionId: state.sessionId });
     callback && callback({ success: true });

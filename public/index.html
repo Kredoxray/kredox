@@ -560,9 +560,11 @@ const socket = io();
 
 socket.on('connect', () => {});
 
-socket.on('initial_state', ({ activeQuestion, sessionId }) => {
+socket.on('initial_state', ({ activeQuestion, shownResults, sessionId }) => {
   applySessionId(sessionId);
-  if (activeQuestion) {
+  if (shownResults) {
+    renderResults(shownResults);
+  } else if (activeQuestion) {
     loadQuestion(activeQuestion);
   } else {
     showView('waiting');
