@@ -870,13 +870,13 @@ body.results-mode .page-header {
   padding: 10px 24px;
 }
 body.results-mode .page-header h1 {
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   justify-content: center;
 }
 body.results-mode .main-content {
   max-width: 1760px;
   padding: 14px 20px;
-  height: calc(100vh - 52px);
+  height: calc(100vh - 58px);
   display: flex;
   flex-direction: column;
 }
@@ -889,19 +889,19 @@ body.results-mode .card {
   overflow: hidden;
 }
 body.results-mode .results-header { margin-bottom: 4px; }
-body.results-mode .results-header h2 { font-size: 1.1rem; }
+body.results-mode .results-header h2 { font-size: 1.35rem; }
 body.results-mode .results-count {
-  font-size: 0.82rem;
-  margin-bottom: 6px;
+  font-size: 1rem;
+  margin-bottom: 8px;
 }
 body.results-mode .question-text {
-  font-size: 0.92rem;
+  font-size: 1.05rem;
   margin-bottom: 14px;
-  padding: 8px 14px;
+  padding: 10px 16px;
   background: #ebf4ff;
   border-left: 3px solid var(--color-accent);
   border-radius: var(--radius-sm);
-  line-height: 1.4;
+  line-height: 1.45;
   white-space: normal;
   overflow: visible;
 }
@@ -931,7 +931,7 @@ body.results-mode .question-text {
   background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -939,15 +939,15 @@ body.results-mode .question-text {
 }
 .scale-card-header {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: flex-start;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .scale-card-title {
   flex: 1;
-  font-size: 0.82rem;
+  font-size: 1rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--color-text);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -956,31 +956,31 @@ body.results-mode .question-text {
 }
 .scale-card-avg {
   flex-shrink: 0;
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.15rem;
+  font-size: 1.4rem;
   font-weight: 800;
   box-shadow: 0 3px 8px rgba(49,130,206,0.35);
 }
-.scale-card .bar-chart { gap: 2px; }
-.scale-card .bar-row { gap: 6px; }
+.scale-card .bar-chart { gap: 3px; }
+.scale-card .bar-row { gap: 8px; }
 .scale-card .bar-label {
-  width: 14px;
-  font-size: 0.72rem;
+  width: 16px;
+  font-size: 0.88rem;
 }
 .scale-card .bar-track {
-  height: 14px;
+  height: 16px;
   border-radius: 3px;
 }
 .scale-card .bar-count {
-  width: 24px;
-  font-size: 0.72rem;
+  width: 28px;
+  font-size: 0.88rem;
 }
 .scale-card .text-entries {
   margin-top: 8px;
@@ -1011,15 +1011,15 @@ body.results-mode .matrix-results-section {
   margin-bottom: 0;
 }
 body.results-mode .matrix-results-section h3 {
-  font-size: 0.95rem;
-  margin-bottom: 8px;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
 }
 body.results-mode .results-matrix-table {
-  font-size: 0.82rem;
+  font-size: 1rem;
 }
 body.results-mode .results-matrix-table th,
 body.results-mode .results-matrix-table td {
-  padding: 7px 9px;
+  padding: 10px 12px;
 }
 
 /* Open text — statement cloud (masonry via CSS columns) */
@@ -1037,10 +1037,10 @@ body.results-mode .results-matrix-table td {
   -webkit-column-break-inside: avoid;
   page-break-inside: avoid;
   margin-bottom: 12px;
-  padding: 11px 14px;
+  padding: 13px 16px;
   border-radius: var(--radius-md);
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 1rem;
+  line-height: 1.5;
   color: var(--color-text);
   display: block;
   box-shadow: var(--shadow-sm);
@@ -1053,7 +1053,7 @@ body.results-mode .results-matrix-table td {
 .statement-card.v4 { background: linear-gradient(135deg, #faf5ff 0%, #e9d8fd 100%); border-left: 3px solid #805ad5; }
 .statement-card.v5 { background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%); border-left: 3px solid #e53e3e; }
 .statement-card.v6 { background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); border-left: 3px solid #319795; }
-.statement-card.size-lg { font-size: 0.95rem; font-weight: 500; }
+.statement-card.size-lg { font-size: 1.08rem; font-weight: 500; }
 .statement-card.size-sm { font-size: 0.82rem; }
 
 .statements-empty {
