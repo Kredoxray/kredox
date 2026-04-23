@@ -907,9 +907,12 @@ body.results-mode .question-text {
 }
 
 body.results-mode .results-scale-label {
-  font-size: 0.88rem;
-  padding: 6px 14px;
-  margin-bottom: 14px;
+  font-size: 0.78rem;
+  padding: 5px 12px;
+  margin-bottom: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Scale Multi — grid of compact cards */
@@ -991,6 +994,20 @@ body.results-mode .results-scale-label {
 .scale-grid.items-8 .bar-count {
   font-size: 0.82rem;
 }
+
+/* Extra compact for items-4: 2 rows must both fit on screen */
+.scale-grid.items-4 .scale-card {
+  padding: 9px 12px !important;
+}
+.scale-grid.items-4 .scale-card-header { margin-bottom: 6px !important; }
+.scale-grid.items-4 .scale-card-avg {
+  width: 52px !important;
+  height: 52px !important;
+  font-size: 1.15rem !important;
+}
+.scale-grid.items-4 .bar-chart { gap: 2px !important; }
+.scale-grid.items-4 .bar-track { height: 11px !important; }
+.scale-grid.items-4 .bar-row { gap: 7px !important; }
 
 .scale-card {
   background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
