@@ -234,6 +234,12 @@ app.get('/admin/results/:questionId', (req, res) => {
 
 // ── Socket.IO ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
+  // Broadcast updated connected count to all clients
+  const emitCount = () => io.emit('connected_count', { count: io.engine.clientsCount });
+  emitCount();
+
+  socket.on('disconnect', () => emitCount());
+
   // Send current state to newly connected client
   const activeQ = state.activeQuestionId
     ? questions.find(q => q.id === state.activeQuestionId)

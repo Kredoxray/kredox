@@ -66,7 +66,13 @@
       </svg>
       Панель управления голосованием
     </h1>
-    <div class="subtitle" id="active-indicator-header"></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="subtitle" id="active-indicator-header"></div>
+      <div id="connected-badge" style="display:none;align-items:center;gap:6px;background:#ebf4ff;color:#2b6cb0;padding:5px 12px;border-radius:20px;font-size:0.82rem;font-weight:700;border:1px solid #bee3f8;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        <span id="connected-count">0</span> подключено
+      </div>
+    </div>
   </header>
 
   <div class="admin-main">
@@ -154,6 +160,11 @@ async function loadState() {
 /* ── Socket ─────────────────────────────────────────────────────────────── */
 function initSocket() {
   socket = io();
+
+  socket.on('connected_count', ({ count }) => {
+    document.getElementById('connected-count').textContent = count;
+    document.getElementById('connected-badge').style.display = 'flex';
+  });
 
   socket.on('vote_count_update', ({ questionId, count }) => {
     const q = appState.questions.find(q => q.id === questionId);
