@@ -913,32 +913,32 @@ body.results-mode .question-text {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 .scale-grid.items-2 { grid-template-columns: repeat(2, 1fr); }
-.scale-grid.items-3 { grid-template-columns: repeat(2, 1fr); }
-.scale-grid.items-3 .scale-card:nth-child(3) {
-  grid-column: 1 / -1;
-  max-width: calc(50% - 7px);
-  margin-left: auto;
-  margin-right: auto;
-}
+.scale-grid.items-3 { grid-template-columns: repeat(3, 1fr); }
 .scale-grid.items-4 { grid-template-columns: repeat(2, 1fr); }
 .scale-grid.items-5,
 .scale-grid.items-6 { grid-template-columns: repeat(3, 1fr); }
 .scale-grid.items-7,
 .scale-grid.items-8 { grid-template-columns: repeat(4, 1fr); }
 
-/* Compact mode for 5+ items — smaller padding, fonts, bars */
+/* Compact mode for 3+ items — smaller padding, fonts, bars */
+.scale-grid.items-3 .scale-card,
+.scale-grid.items-4 .scale-card,
 .scale-grid.items-5 .scale-card,
 .scale-grid.items-6 .scale-card,
 .scale-grid.items-7 .scale-card,
 .scale-grid.items-8 .scale-card {
   padding: 12px 14px;
 }
+.scale-grid.items-3 .scale-card-title,
+.scale-grid.items-4 .scale-card-title,
 .scale-grid.items-5 .scale-card-title,
 .scale-grid.items-6 .scale-card-title,
 .scale-grid.items-7 .scale-card-title,
 .scale-grid.items-8 .scale-card-title {
   font-size: 0.95rem;
 }
+.scale-grid.items-3 .scale-card-avg,
+.scale-grid.items-4 .scale-card-avg,
 .scale-grid.items-5 .scale-card-avg,
 .scale-grid.items-6 .scale-card-avg,
 .scale-grid.items-7 .scale-card-avg,
@@ -947,28 +947,38 @@ body.results-mode .question-text {
   height: 58px;
   font-size: 1.3rem;
 }
+.scale-grid.items-3 .scale-card-header,
+.scale-grid.items-4 .scale-card-header,
 .scale-grid.items-5 .scale-card-header,
 .scale-grid.items-6 .scale-card-header,
 .scale-grid.items-7 .scale-card-header,
 .scale-grid.items-8 .scale-card-header {
   margin-bottom: 8px;
 }
+.scale-grid.items-3 .bar-chart,
+.scale-grid.items-4 .bar-chart,
 .scale-grid.items-5 .bar-chart,
 .scale-grid.items-6 .bar-chart,
 .scale-grid.items-7 .bar-chart,
 .scale-grid.items-8 .bar-chart {
   gap: 3px;
 }
+.scale-grid.items-3 .bar-track,
+.scale-grid.items-4 .bar-track,
 .scale-grid.items-5 .bar-track,
 .scale-grid.items-6 .bar-track,
 .scale-grid.items-7 .bar-track,
 .scale-grid.items-8 .bar-track {
   height: 13px;
 }
+.scale-grid.items-3 .bar-label,
+.scale-grid.items-4 .bar-label,
 .scale-grid.items-5 .bar-label,
 .scale-grid.items-6 .bar-label,
 .scale-grid.items-7 .bar-label,
 .scale-grid.items-8 .bar-label,
+.scale-grid.items-3 .bar-count,
+.scale-grid.items-4 .bar-count,
 .scale-grid.items-5 .bar-count,
 .scale-grid.items-6 .bar-count,
 .scale-grid.items-7 .bar-count,
