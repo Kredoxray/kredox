@@ -907,12 +907,9 @@ body.results-mode .question-text {
 }
 
 body.results-mode .results-scale-label {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   padding: 5px 12px;
   margin-bottom: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Scale Multi — grid of compact cards */
