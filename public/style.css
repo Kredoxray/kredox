@@ -886,7 +886,7 @@ body.results-mode .card {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 body.results-mode .results-header { margin-bottom: 4px; }
 body.results-mode .results-header h2 { font-size: 1.5rem; }
@@ -911,8 +911,6 @@ body.results-mode .question-text {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  flex: 1;
-  overflow: hidden;
 }
 .scale-grid.items-2 { grid-template-columns: repeat(2, 1fr); }
 .scale-grid.items-3 { grid-template-columns: repeat(2, 1fr); }
@@ -967,7 +965,7 @@ body.results-mode .question-text {
   font-weight: 800;
   box-shadow: 0 3px 8px rgba(49,130,206,0.35);
 }
-.scale-card .bar-chart { gap: 5px; flex: 1; }
+.scale-card .bar-chart { gap: 5px; }
 .scale-card .bar-row { gap: 10px; }
 .scale-card .bar-label {
   width: 18px;
@@ -1002,9 +1000,6 @@ body.results-mode .question-text {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 18px;
-  flex: 1;
-  overflow: hidden;
-  align-content: start;
 }
 body.results-mode .matrix-results-section {
   margin-bottom: 0;
