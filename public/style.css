@@ -923,6 +923,58 @@ body.results-mode .question-text {
 .scale-grid.items-4 { grid-template-columns: repeat(2, 1fr); }
 .scale-grid.items-5,
 .scale-grid.items-6 { grid-template-columns: repeat(3, 1fr); }
+.scale-grid.items-7,
+.scale-grid.items-8 { grid-template-columns: repeat(4, 1fr); }
+
+/* Compact mode for 5+ items — smaller padding, fonts, bars */
+.scale-grid.items-5 .scale-card,
+.scale-grid.items-6 .scale-card,
+.scale-grid.items-7 .scale-card,
+.scale-grid.items-8 .scale-card {
+  padding: 12px 14px;
+}
+.scale-grid.items-5 .scale-card-title,
+.scale-grid.items-6 .scale-card-title,
+.scale-grid.items-7 .scale-card-title,
+.scale-grid.items-8 .scale-card-title {
+  font-size: 0.95rem;
+}
+.scale-grid.items-5 .scale-card-avg,
+.scale-grid.items-6 .scale-card-avg,
+.scale-grid.items-7 .scale-card-avg,
+.scale-grid.items-8 .scale-card-avg {
+  width: 58px;
+  height: 58px;
+  font-size: 1.3rem;
+}
+.scale-grid.items-5 .scale-card-header,
+.scale-grid.items-6 .scale-card-header,
+.scale-grid.items-7 .scale-card-header,
+.scale-grid.items-8 .scale-card-header {
+  margin-bottom: 8px;
+}
+.scale-grid.items-5 .bar-chart,
+.scale-grid.items-6 .bar-chart,
+.scale-grid.items-7 .bar-chart,
+.scale-grid.items-8 .bar-chart {
+  gap: 3px;
+}
+.scale-grid.items-5 .bar-track,
+.scale-grid.items-6 .bar-track,
+.scale-grid.items-7 .bar-track,
+.scale-grid.items-8 .bar-track {
+  height: 13px;
+}
+.scale-grid.items-5 .bar-label,
+.scale-grid.items-6 .bar-label,
+.scale-grid.items-7 .bar-label,
+.scale-grid.items-8 .bar-label,
+.scale-grid.items-5 .bar-count,
+.scale-grid.items-6 .bar-count,
+.scale-grid.items-7 .bar-count,
+.scale-grid.items-8 .bar-count {
+  font-size: 0.82rem;
+}
 
 .scale-card {
   background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
