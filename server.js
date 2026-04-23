@@ -430,6 +430,201 @@ app.get('/admin/export', (req, res) => {
   res.send(buf);
 });
 
+// ── PDF Print Page ───────────────────────────────────────────────────────────
+app.get('/admin/results-print', (req, res) => {
+  if (!(req.session && req.session.isAdmin)) return res.status(401).send('Unauthorized');
+
+  const date = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  function escH(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function heatRgb(ratio) {
+    const r = Math.round(255 + ratio * (39 - 255));
+    const g = Math.round(255 + ratio * (122 - 255));
+    const b = Math.round(255 + ratio * (73 - 255));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  let body = '';
+
+  questions.forEach((q, qi) => {
+    const results = state.lastResults[q.id] || computeResults(q.id);
+    const count = results.totalCount || results.count || 0;
+    if (count === 0 && (!results.answers || results.answers.length === 0)) return;
+
+    body += `<div class="question-block">`;
+    body += `<div class="q-meta">Вопрос ${qi + 1} · ${count} ответов</div>`;
+    body += `<div class="q-text">${escH(results.questionText)}</div>`;
+
+    if (results.scaleLabel) {
+      body += `<div class="q-legend">${escH(results.scaleLabel)}</div>`;
+    }
+    if (results.matrixDescription) {
+      body += `<div class="q-legend">${escH(results.matrixDescription)}</div>`;
+    }
+
+    // ── scale_multi ──
+    if (results.type === 'scale_multi') {
+      body += `<div class="scale-grid">`;
+      results.items.forEach(item => {
+        const maxC = Math.max(...Object.values(item.distribution), 1);
+        body += `<div class="scale-card">
+          <div class="scale-card-head">
+            <div class="scale-title">${escH(item.text)}</div>
+            <div class="scale-avg">${item.average}</div>
+          </div>
+          <div class="bars">`;
+        for (let v = 1; v <= 7; v++) {
+          const c = item.distribution[v] || 0;
+          const pct = Math.round((c / maxC) * 100);
+          body += `<div class="bar-row">
+            <span class="bar-lbl">${v}</span>
+            <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+            <span class="bar-cnt">${c}</span>
+          </div>`;
+        }
+        body += `</div></div>`;
+      });
+      body += `</div>`;
+    }
+
+    // ── single_choice ──
+    if (results.type === 'single_choice') {
+      const maxC = Math.max(...results.options.map(o => o.count), 1);
+      body += `<div class="choice-results">`;
+      results.options.forEach(opt => {
+        const pct = Math.round((opt.count / maxC) * 100);
+        body += `<div class="choice-row">
+          <div class="choice-label">${escH(opt.text)}</div>
+          <div class="choice-bar-wrap"><div class="choice-bar" style="width:${pct}%"></div></div>
+          <div class="choice-stat">${opt.count} <span class="choice-pct">(${opt.pct}%)</span></div>
+        </div>`;
+      });
+      body += `</div>`;
+    }
+
+    // ── open_text ──
+    if (results.type === 'open_text' && results.answers && results.answers.length > 0) {
+      body += `<div class="answers-grid">`;
+      results.answers.forEach((ans, i) => {
+        body += `<div class="answer-card v${(i % 6) + 1}">${escH(ans)}</div>`;
+      });
+      body += `</div>`;
+    }
+
+    // ── matrix ──
+    if (results.type === 'matrix') {
+      const { rows: rNames, columns: cNames, avgMatrix } = results;
+      const integralRow = cNames.map((_, ci) =>
+        avgMatrix.reduce((s, row) => s + (parseFloat(row[ci]) || 0), 0)
+      );
+      const allNums = [...avgMatrix.flatMap(r => r.map(v => parseFloat(v) || 0)), ...integralRow];
+      const maxVal = Math.max(...allNums, 1);
+
+      body += `<table class="matrix-tbl"><thead><tr><th></th>`;
+      cNames.forEach(c => { body += `<th>${escH(c)}</th>`; });
+      body += `</tr></thead><tbody>`;
+      rNames.forEach((rName, ri) => {
+        body += `<tr><td class="row-label">${escH(rName)}</td>`;
+        cNames.forEach((_, ci) => {
+          const val = avgMatrix[ri][ci];
+          const ratio = (parseFloat(val) || 0) / maxVal;
+          const bg = heatRgb(ratio);
+          const col = ratio > 0.6 ? '#fff' : '#1a202c';
+          body += `<td style="background:${bg};color:${col}">${val}</td>`;
+        });
+        body += `</tr>`;
+      });
+      body += `<tr class="integral-row"><td>Интегральный балл</td>`;
+      integralRow.forEach(val => {
+        const ratio = val / Math.max(...integralRow, 1);
+        const bg = heatRgb(ratio);
+        const col = ratio > 0.6 ? '#fff' : '#1a202c';
+        body += `<td style="background:${bg};color:${col}">${val.toFixed(2)}</td>`;
+      });
+      body += `</tr></tbody></table>`;
+    }
+
+    body += `</div>`;
+  });
+
+  if (!body) body = '<p style="color:#718096;text-align:center;padding:40px">Результатов пока нет</p>';
+
+  const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Результаты голосования</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12pt; color: #1a202c; background: #fff; }
+  .page-header { background: #1a365d; color: #fff; padding: 24px 40px; margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; }
+  .page-header h1 { font-size: 18pt; font-weight: 700; }
+  .page-header .date { font-size: 10pt; opacity: 0.8; }
+  .question-block { padding: 0 40px 32px; page-break-inside: avoid; border-bottom: 1px solid #e2e8f0; margin-bottom: 32px; }
+  .q-meta { font-size: 8.5pt; font-weight: 700; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .q-text { font-size: 13pt; font-weight: 700; color: #1a365d; line-height: 1.4; margin-bottom: 8px; }
+  .q-legend { font-size: 8.5pt; color: #4a5568; background: #ebf4ff; border-left: 3px solid #3182ce; padding: 5px 10px; border-radius: 3px; margin-bottom: 14px; }
+  /* Scale */
+  .scale-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 10px; }
+  .scale-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background: #f7fafc; }
+  .scale-card-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+  .scale-title { flex: 1; font-size: 9.5pt; font-weight: 600; line-height: 1.35; color: #2d3748; }
+  .scale-avg { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #1a365d, #3182ce); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12pt; font-weight: 800; }
+  .bars { display: flex; flex-direction: column; gap: 3px; }
+  .bar-row { display: flex; align-items: center; gap: 6px; }
+  .bar-lbl { width: 12px; font-size: 8pt; color: #718096; text-align: right; flex-shrink: 0; }
+  .bar-wrap { flex: 1; background: #e2e8f0; border-radius: 3px; height: 10px; overflow: hidden; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, #1a365d, #3182ce); border-radius: 3px; min-width: 2px; }
+  .bar-cnt { width: 20px; font-size: 8pt; color: #4a5568; }
+  /* Single choice */
+  .choice-results { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .choice-row { display: grid; grid-template-columns: 2fr 3fr auto; align-items: center; gap: 12px; }
+  .choice-label { font-size: 9.5pt; font-weight: 500; line-height: 1.35; }
+  .choice-bar-wrap { background: #e2e8f0; border-radius: 4px; height: 16px; overflow: hidden; }
+  .choice-bar { height: 100%; background: linear-gradient(90deg, #1a365d, #3182ce); border-radius: 4px; min-width: 3px; }
+  .choice-stat { font-size: 10pt; font-weight: 700; color: #1a365d; white-space: nowrap; text-align: right; }
+  .choice-pct { font-size: 8.5pt; font-weight: 500; color: #718096; }
+  /* Open text */
+  .answers-grid { columns: 2; column-gap: 12px; margin-top: 10px; }
+  .answer-card { break-inside: avoid; margin-bottom: 8px; padding: 8px 10px; border-radius: 4px; font-size: 9.5pt; line-height: 1.45; border-left: 3px solid; }
+  .v1 { background: #ebf4ff; border-color: #3182ce; }
+  .v2 { background: #f0fff4; border-color: #38a169; }
+  .v3 { background: #fffaf0; border-color: #d69e2e; }
+  .v4 { background: #faf5ff; border-color: #805ad5; }
+  .v5 { background: #fff5f5; border-color: #e53e3e; }
+  .v6 { background: #e6fffa; border-color: #319795; }
+  /* Matrix */
+  .matrix-tbl { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9.5pt; }
+  .matrix-tbl th { background: #1a365d; color: #fff; padding: 7px 10px; text-align: center; font-weight: 600; border: 1px solid #2c5282; font-size: 8.5pt; }
+  .matrix-tbl th:first-child { text-align: left; }
+  .matrix-tbl td { padding: 7px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; }
+  .matrix-tbl td.row-label { text-align: left; font-weight: 500; background: #f7fafc !important; font-size: 8.5pt; }
+  .integral-row td { border-top: 2px solid #1a365d !important; font-weight: 700; }
+  .integral-row td.row-label, .integral-row td:first-child { background: #dce6f0 !important; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .question-block { page-break-inside: avoid; }
+    .page-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page-header">
+  <h1>Результаты голосования</h1>
+  <div class="date">${date}</div>
+</div>
+${body}
+<script>window.onload = () => window.print();<\/script>
+</body>
+</html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
 // ── Start ────────────────────────────────────────────────────────────────────
 server.listen(PORT, () => {
   console.log(`✓ Voting app running on http://localhost:${PORT}`);

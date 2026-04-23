@@ -80,7 +80,8 @@
     <div class="admin-toolbar">
       <h2>Вопросы</h2>
       <div class="btn-group">
-        <button class="btn btn-success btn-sm" onclick="downloadExcel()">Скачать результаты (Excel)</button>
+        <button class="btn btn-success btn-sm" onclick="downloadExcel()">Скачать Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="window.open('/admin/results-print','_blank')">Скачать PDF</button>
         <button class="btn btn-danger btn-sm" onclick="resetAllClientVotes()">Сбросить голоса у участников</button>
         <button class="btn btn-outline btn-sm" onclick="doLogout()">Выйти</button>
       </div>
