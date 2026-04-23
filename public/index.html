@@ -49,6 +49,7 @@
 <script>
 /* ── Utils ─────────────────────────────────────────────────────────────── */
 const VOTED_KEY = 'voting_answered';
+let _sessionId = null;
 
 function getAnswered() {
   try { return JSON.parse(localStorage.getItem(VOTED_KEY) || '{}'); } catch { return {}; }
@@ -56,12 +57,24 @@ function getAnswered() {
 
 function markAnswered(questionId) {
   const data = getAnswered();
+  data._sessionId = _sessionId;
   data[questionId] = true;
   localStorage.setItem(VOTED_KEY, JSON.stringify(data));
 }
 
 function hasAnswered(questionId) {
-  return !!getAnswered()[questionId];
+  const data = getAnswered();
+  if (!_sessionId || data._sessionId !== _sessionId) return false;
+  return !!data[questionId];
+}
+
+function applySessionId(id) {
+  if (!id) return;
+  _sessionId = id;
+  const data = getAnswered();
+  if (data._sessionId !== id) {
+    localStorage.removeItem(VOTED_KEY);
+  }
 }
 
 /* ── Views ─────────────────────────────────────────────────────────────── */
@@ -547,7 +560,8 @@ const socket = io();
 
 socket.on('connect', () => {});
 
-socket.on('initial_state', ({ activeQuestionId, activeQuestion }) => {
+socket.on('initial_state', ({ activeQuestion, sessionId }) => {
+  applySessionId(sessionId);
   if (activeQuestion) {
     loadQuestion(activeQuestion);
   } else {
@@ -560,9 +574,11 @@ socket.on('question_activated', ({ question }) => {
 });
 
 socket.on('question_closed', ({ questionId, results }) => {
-  // If user already answered this question, show results directly
-  // If user was waiting, show results too
   renderResults(results);
+});
+
+socket.on('session_updated', ({ sessionId }) => {
+  applySessionId(sessionId);
 });
 
 socket.on('clear_local_storage', () => {

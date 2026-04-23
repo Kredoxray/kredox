@@ -40,7 +40,8 @@ const state = {
   activeQuestionId: null,
   questionStatuses: {},   // 'inactive' | 'active' | 'closed'
   answers: {},            // { questionId: [answer, ...] }
-  lastResults: {}         // { questionId: computedResults }
+  lastResults: {},        // { questionId: computedResults }
+  sessionId: Date.now().toString()
 };
 
 questions.forEach(q => {
@@ -247,7 +248,8 @@ io.on('connection', (socket) => {
 
   socket.emit('initial_state', {
     activeQuestionId: state.activeQuestionId,
-    activeQuestion: activeQ ? getPublicQuestion(activeQ) : null
+    activeQuestion: activeQ ? getPublicQuestion(activeQ) : null,
+    sessionId: state.sessionId
   });
 
   // ── Admin: activate question ──────────────────────────────────────────────
@@ -327,7 +329,9 @@ io.on('connection', (socket) => {
   // ── Admin: reset localStorage on all clients ──────────────────────────────
   socket.on('reset_client_votes', (data, callback) => {
     if (!isAdmin(socket)) return callback && callback({ error: 'Unauthorized' });
+    state.sessionId = Date.now().toString();
     io.emit('clear_local_storage');
+    io.emit('session_updated', { sessionId: state.sessionId });
     callback && callback({ success: true });
   });
 
