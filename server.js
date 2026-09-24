@@ -456,34 +456,55 @@ app.get('/admin/results-print', (req, res) => {
 
   const date = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 
+  const TYPE_LABELS = {
+    scale_multi: 'Шкала 1–7',
+    open_text: 'Открытый вопрос',
+    matrix: 'Матрица',
+    single_choice: 'Один вариант',
+    multi_choice: 'Несколько вариантов'
+  };
+
   function escH(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function heatRgb(ratio) {
-    const r = Math.round(255 + ratio * (39 - 255));
-    const g = Math.round(255 + ratio * (122 - 255));
-    const b = Math.round(255 + ratio * (73 - 255));
-    return `rgb(${r},${g},${b})`;
+  // Light blue → brand blue, matches the on-screen theme
+  function heat(ratio) {
+    const from = [239, 246, 255], to = [29, 78, 216];
+    const c = from.map((f, i) => Math.round(f + ratio * (to[i] - f)));
+    return { bg: `rgb(${c.join(',')})`, fg: ratio > 0.55 ? '#fff' : '#0f2a4a' };
   }
 
+  const BARS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 20V11M12 20V4M18 20v-6"/></svg>';
+
   let body = '';
+  let answeredCount = 0;
+  let maxParticipants = 0;
+  let totalAnswers = 0;
 
   questions.forEach((q, qi) => {
     const results = state.lastResults[q.id] || computeResults(q.id);
     const count = results.totalCount || results.count || 0;
     if (count === 0 && (!results.answers || results.answers.length === 0)) return;
+    answeredCount++;
+    maxParticipants = Math.max(maxParticipants, count);
+    totalAnswers += count;
 
-    body += `<div class="question-block">`;
-    body += `<div class="q-meta">Вопрос ${qi + 1} · ${count} ответов</div>`;
-    body += `<div class="q-text">${escH(results.questionText)}</div>`;
+    body += `<section class="q-card">`;
+    body += `<div class="q-head">
+      <div class="q-index">${qi + 1}</div>
+      <div class="q-head-main">
+        <div class="q-chips">
+          <span class="chip chip-type">${TYPE_LABELS[results.type] || results.type}</span>
+          <span class="chip chip-count"><i></i>${count} ${plural(count, 'ответ', 'ответа', 'ответов')}</span>
+        </div>
+        <div class="q-text">${escH(results.questionText)}</div>
+      </div>
+    </div>`;
 
-    if (results.scaleLabel) {
-      body += `<div class="q-legend">${escH(results.scaleLabel)}</div>`;
-    }
-    if (results.matrixDescription) {
-      body += `<div class="q-legend">${escH(results.matrixDescription)}</div>`;
-    }
+    const legend = results.scaleLabel || results.matrixDescription ||
+      (results.type === 'multi_choice' ? 'Можно было выбрать несколько вариантов · % — доля участников, выбравших вариант' : '');
+    if (legend) body += `<div class="q-legend">${escH(legend)}</div>`;
 
     // ── scale_multi ──
     if (results.type === 'scale_multi') {
@@ -491,35 +512,43 @@ app.get('/admin/results-print', (req, res) => {
       results.items.forEach(item => {
         const maxC = Math.max(...Object.values(item.distribution), 1);
         body += `<div class="scale-card">
-          <div class="scale-card-head">
+          <div class="scale-head">
             <div class="scale-title">${escH(item.text)}</div>
             <div class="scale-avg">${item.average}</div>
           </div>
           <div class="bars">`;
         for (let v = 1; v <= 7; v++) {
           const c = item.distribution[v] || 0;
-          const pct = Math.round((c / maxC) * 100);
           body += `<div class="bar-row">
             <span class="bar-lbl">${v}</span>
-            <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+            <div class="track"><div class="fill" style="width:${Math.round(c / maxC * 100)}%"></div></div>
             <span class="bar-cnt">${c}</span>
           </div>`;
         }
-        body += `</div></div>`;
+        body += `</div>`;
+        if (item.hasInput && item.textEntries && item.textEntries.length > 0) {
+          body += `<div class="other">`;
+          item.textEntries.forEach(e => {
+            body += `<div class="other-row"><span>${escH(e.text)}</span><b>${e.value}</b></div>`;
+          });
+          body += `</div>`;
+        }
+        body += `</div>`;
       });
       body += `</div>`;
     }
 
-    // ── single_choice ──
+    // ── single_choice / multi_choice ──
     if (results.type === 'single_choice' || results.type === 'multi_choice') {
       const maxC = Math.max(...results.options.map(o => o.count), 1);
-      body += `<div class="choice-results">`;
+      const top = Math.max(...results.options.map(o => o.count));
+      body += `<div class="choices">`;
       results.options.forEach(opt => {
-        const pct = Math.round((opt.count / maxC) * 100);
-        body += `<div class="choice-row">
+        const isTop = top > 0 && opt.count === top;
+        body += `<div class="choice${isTop ? ' top' : ''}">
           <div class="choice-label">${escH(opt.text)}</div>
-          <div class="choice-bar-wrap"><div class="choice-bar" style="width:${pct}%"></div></div>
-          <div class="choice-stat">${opt.count} <span class="choice-pct">(${opt.pct}%)</span></div>
+          <div class="track track-lg"><div class="fill" style="width:${Math.round(opt.count / maxC * 100)}%"></div></div>
+          <div class="choice-stat"><b>${opt.count}</b><span>${opt.pct}%</span></div>
         </div>`;
       });
       body += `</div>`;
@@ -527,9 +556,9 @@ app.get('/admin/results-print', (req, res) => {
 
     // ── open_text ──
     if (results.type === 'open_text' && results.answers && results.answers.length > 0) {
-      body += `<div class="answers-grid">`;
+      body += `<div class="answers">`;
       results.answers.forEach((ans, i) => {
-        body += `<div class="answer-card v${(i % 6) + 1}">${escH(ans)}</div>`;
+        body += `<div class="answer v${(i % 6) + 1}">${escH(ans)}</div>`;
       });
       body += `</div>`;
     }
@@ -540,104 +569,204 @@ app.get('/admin/results-print', (req, res) => {
       const integralRow = cNames.map((_, ci) =>
         avgMatrix.reduce((s, row) => s + (parseFloat(row[ci]) || 0), 0)
       );
-      const allNums = [...avgMatrix.flatMap(r => r.map(v => parseFloat(v) || 0)), ...integralRow];
-      const maxVal = Math.max(...allNums, 1);
+      const maxVal = Math.max(...avgMatrix.flatMap(r => r.map(v => parseFloat(v) || 0)), 1);
+      const maxInt = Math.max(...integralRow, 1);
 
-      body += `<table class="matrix-tbl"><thead><tr><th></th>`;
+      body += `<table class="matrix"><thead><tr><th></th>`;
       cNames.forEach(c => { body += `<th>${escH(c)}</th>`; });
       body += `</tr></thead><tbody>`;
       rNames.forEach((rName, ri) => {
         body += `<tr><td class="row-label">${escH(rName)}</td>`;
         cNames.forEach((_, ci) => {
           const val = avgMatrix[ri][ci];
-          const ratio = (parseFloat(val) || 0) / maxVal;
-          const bg = heatRgb(ratio);
-          const col = ratio > 0.6 ? '#fff' : '#1a202c';
-          body += `<td style="background:${bg};color:${col}">${val}</td>`;
+          const h = heat((parseFloat(val) || 0) / maxVal);
+          body += `<td style="background:${h.bg};color:${h.fg}">${val}</td>`;
         });
         body += `</tr>`;
       });
-      body += `<tr class="integral-row"><td>Интегральный балл</td>`;
+      body += `<tr class="integral"><td class="row-label">Интегральный балл</td>`;
       integralRow.forEach(val => {
-        const ratio = val / Math.max(...integralRow, 1);
-        const bg = heatRgb(ratio);
-        const col = ratio > 0.6 ? '#fff' : '#1a202c';
-        body += `<td style="background:${bg};color:${col}">${val.toFixed(2)}</td>`;
+        const h = heat(val / maxInt);
+        body += `<td style="background:${h.bg};color:${h.fg}">${val.toFixed(2)}</td>`;
       });
       body += `</tr></tbody></table>`;
     }
 
-    body += `</div>`;
+    body += `</section>`;
   });
 
-  if (!body) body = '<p style="color:#718096;text-align:center;padding:40px">Результатов пока нет</p>';
+  if (!body) body = '<div class="empty">Результатов пока нет</div>';
+
+  function plural(n, one, few, many) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Результаты голосования</title>
+<title>Результаты голосования — ${escH(date)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
+  @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12pt; color: #1a202c; background: #fff; }
-  .page-header { background: #1a365d; color: #fff; padding: 24px 40px; margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; }
-  .page-header h1 { font-size: 18pt; font-weight: 700; }
-  .page-header .date { font-size: 10pt; opacity: 0.8; }
-  .question-block { padding: 0 40px 32px; page-break-inside: avoid; border-bottom: 1px solid #e2e8f0; margin-bottom: 32px; }
-  .q-meta { font-size: 8.5pt; font-weight: 700; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .q-text { font-size: 13pt; font-weight: 700; color: #1a365d; line-height: 1.4; margin-bottom: 8px; }
-  .q-legend { font-size: 8.5pt; color: #4a5568; background: #ebf4ff; border-left: 3px solid #3182ce; padding: 5px 10px; border-radius: 3px; margin-bottom: 14px; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 10.5pt; color: #1e293b; background: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 190mm; margin: 0 auto; }
+
+  /* Cover banner */
+  .banner {
+    position: relative; overflow: hidden;
+    background: #0a1d35; color: #fff;
+    border-radius: 18px; padding: 22px 26px; margin-bottom: 14px;
+  }
+  .banner::after {
+    content: ''; position: absolute; right: -60px; top: -80px;
+    width: 260px; height: 260px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(14,165,233,.45), transparent 65%);
+  }
+  .banner-row { position: relative; display: flex; align-items: center; gap: 14px; }
+  .mark {
+    width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #0ea5e9 100%);
+  }
+  .mark svg { width: 22px; height: 22px; color: #fff; }
+  .banner h1 { font-size: 19pt; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+  .banner .sub { font-size: 9.5pt; opacity: .7; margin-top: 2px; }
+
+  .summary { display: flex; gap: 10px; margin-bottom: 18px; }
+  .sum {
+    flex: 1; border: 1px solid #e2e8f0; border-radius: 14px; padding: 10px 14px; background: #f8fafc;
+  }
+  .sum b { display: block; font-size: 15pt; font-weight: 800; color: #0f2a4a; letter-spacing: -0.02em; }
+  .sum span { font-size: 8.5pt; color: #64748b; }
+
+  /* Question cards */
+  .q-card {
+    border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 18px 18px; margin-bottom: 12px;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .q-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+  .q-index {
+    width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 11pt; color: #fff;
+    background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+  }
+  .q-head-main { flex: 1; }
+  .q-chips { display: flex; gap: 6px; margin-bottom: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 7.5pt; font-weight: 700; border-radius: 999px; padding: 2px 9px; }
+  .chip-type { background: rgba(37,99,235,.09); color: #1d4ed8; text-transform: uppercase; letter-spacing: .06em; }
+  .chip-count { background: #f1f5f9; color: #475569; }
+  .chip-count i { width: 6px; height: 6px; border-radius: 50%; background: #16a34a; }
+  .q-text { font-size: 12.5pt; font-weight: 800; color: #0f2a4a; line-height: 1.35; letter-spacing: -0.01em; }
+  .q-legend {
+    display: inline-block; font-size: 8.5pt; font-weight: 600; color: #1e40af;
+    background: rgba(37,99,235,.07); border-radius: 10px; padding: 5px 11px; margin: 0 0 12px 42px;
+  }
+
+  .track { background: #eef2f7; border-radius: 999px; height: 8px; overflow: hidden; }
+  .track-lg { height: 12px; }
+  .fill { height: 100%; border-radius: 999px; min-width: 3px; background: linear-gradient(90deg, #93c5fd, #60a5fa); }
+
+  /* Choice */
+  .choices { display: flex; flex-direction: column; gap: 9px; padding-left: 42px; }
+  .choice { display: grid; grid-template-columns: 1.25fr 1fr 58px; gap: 12px; align-items: center; }
+  .choice-label { font-size: 9.5pt; line-height: 1.35; color: #334155; }
+  .choice-stat { text-align: right; white-space: nowrap; }
+  .choice-stat b { font-size: 12pt; font-weight: 800; color: #0f2a4a; }
+  .choice-stat span { font-size: 8.5pt; color: #64748b; margin-left: 4px; }
+  .choice.top .choice-label { color: #0f2a4a; font-weight: 700; }
+  .choice.top .fill { background: linear-gradient(90deg, #1d4ed8, #2563eb 45%, #0ea5e9); }
+  .choice.top .choice-stat b { color: #2563eb; }
+
   /* Scale */
-  .scale-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 10px; }
-  .scale-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background: #f7fafc; }
-  .scale-card-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
-  .scale-title { flex: 1; font-size: 9.5pt; font-weight: 600; line-height: 1.35; color: #2d3748; }
-  .scale-avg { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #1a365d, #3182ce); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12pt; font-weight: 800; }
+  .scale-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; padding-left: 42px; }
+  .scale-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; background: #f8fafc; }
+  .scale-head { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+  .scale-title { flex: 1; font-size: 8.5pt; font-weight: 600; line-height: 1.35; color: #1e293b; }
+  .scale-avg {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10pt; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+  }
   .bars { display: flex; flex-direction: column; gap: 3px; }
   .bar-row { display: flex; align-items: center; gap: 6px; }
-  .bar-lbl { width: 12px; font-size: 8pt; color: #718096; text-align: right; flex-shrink: 0; }
-  .bar-wrap { flex: 1; background: #e2e8f0; border-radius: 3px; height: 10px; overflow: hidden; }
-  .bar-fill { height: 100%; background: linear-gradient(90deg, #1a365d, #3182ce); border-radius: 3px; min-width: 2px; }
-  .bar-cnt { width: 20px; font-size: 8pt; color: #4a5568; }
-  /* Single choice */
-  .choice-results { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
-  .choice-row { display: grid; grid-template-columns: 2fr 3fr auto; align-items: center; gap: 12px; }
-  .choice-label { font-size: 9.5pt; font-weight: 500; line-height: 1.35; }
-  .choice-bar-wrap { background: #e2e8f0; border-radius: 4px; height: 16px; overflow: hidden; }
-  .choice-bar { height: 100%; background: linear-gradient(90deg, #1a365d, #3182ce); border-radius: 4px; min-width: 3px; }
-  .choice-stat { font-size: 10pt; font-weight: 700; color: #1a365d; white-space: nowrap; text-align: right; }
-  .choice-pct { font-size: 8.5pt; font-weight: 500; color: #718096; }
+  .bar-row .fill { background: linear-gradient(90deg, #1d4ed8, #0ea5e9); }
+  .bar-lbl, .bar-cnt { width: 14px; font-size: 7.5pt; color: #64748b; flex-shrink: 0; }
+  .bar-lbl { text-align: right; }
+  .bar-row .track { flex: 1; }
+  .other { margin-top: 8px; border-top: 1px dashed #cbd5e1; padding-top: 6px; }
+  .other-row { display: flex; justify-content: space-between; gap: 8px; font-size: 8pt; color: #334155; padding: 2px 0; }
+  .other-row b { color: #2563eb; }
+
   /* Open text */
-  .answers-grid { columns: 2; column-gap: 12px; margin-top: 10px; }
-  .answer-card { break-inside: avoid; margin-bottom: 8px; padding: 8px 10px; border-radius: 4px; font-size: 9.5pt; line-height: 1.45; border-left: 3px solid; }
-  .v1 { background: #ebf4ff; border-color: #3182ce; }
-  .v2 { background: #f0fff4; border-color: #38a169; }
-  .v3 { background: #fffaf0; border-color: #d69e2e; }
-  .v4 { background: #faf5ff; border-color: #805ad5; }
-  .v5 { background: #fff5f5; border-color: #e53e3e; }
-  .v6 { background: #e6fffa; border-color: #319795; }
+  .answers { columns: 2; column-gap: 10px; padding-left: 42px; }
+  .answer {
+    break-inside: avoid; margin-bottom: 8px; padding: 8px 11px; border-radius: 10px;
+    font-size: 9pt; line-height: 1.45; border-left: 3px solid;
+  }
+  .v1 { background: #eff6ff; border-color: #2563eb; }
+  .v2 { background: #f0fdf4; border-color: #16a34a; }
+  .v3 { background: #fffbeb; border-color: #d97706; }
+  .v4 { background: #f5f3ff; border-color: #7c3aed; }
+  .v5 { background: #fff1f2; border-color: #e11d48; }
+  .v6 { background: #ecfeff; border-color: #0891b2; }
+
   /* Matrix */
-  .matrix-tbl { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9.5pt; }
-  .matrix-tbl th { background: #1a365d; color: #fff; padding: 7px 10px; text-align: center; font-weight: 600; border: 1px solid #2c5282; font-size: 8.5pt; }
-  .matrix-tbl th:first-child { text-align: left; }
-  .matrix-tbl td { padding: 7px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; }
-  .matrix-tbl td.row-label { text-align: left; font-weight: 500; background: #f7fafc !important; font-size: 8.5pt; }
-  .integral-row td { border-top: 2px solid #1a365d !important; font-weight: 700; }
-  .integral-row td.row-label, .integral-row td:first-child { background: #dce6f0 !important; }
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .question-block { page-break-inside: avoid; }
-    .page-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .matrix { width: calc(100% - 42px); margin-left: 42px; border-collapse: separate; border-spacing: 3px; font-size: 9pt; }
+  .matrix th { background: #0f2a4a; color: #fff; font-weight: 600; font-size: 8pt; padding: 7px 8px; border-radius: 8px; }
+  .matrix td { text-align: center; font-weight: 800; padding: 8px; border-radius: 8px; }
+  .matrix td.row-label { text-align: left; font-weight: 600; font-size: 8.5pt; background: #f1f5f9 !important; color: #1e293b !important; }
+  .matrix tr.integral td { outline: 2px solid #0f2a4a; outline-offset: -2px; }
+  .matrix tr.integral td.row-label { background: #0f2a4a !important; color: #fff !important; outline: none; }
+
+  .empty { text-align: center; color: #64748b; padding: 48px; border: 1px dashed #cbd5e1; border-radius: 16px; }
+  .footer { margin-top: 16px; text-align: center; font-size: 8pt; color: #94a3b8; }
+
+  @media screen {
+    body { background: #f3f6fb; padding: 24px 0; }
+    .page { background: #fff; padding: 12mm; border-radius: 20px; box-shadow: 0 20px 48px -20px rgba(15,23,42,.25); }
   }
 </style>
 </head>
 <body>
-<div class="page-header">
-  <h1>Результаты голосования</h1>
-  <div class="date">${date}</div>
+<div class="page">
+  <div class="banner">
+    <div class="banner-row">
+      <div class="mark">${BARS_ICON}</div>
+      <div>
+        <h1>Результаты голосования</h1>
+        <div class="sub">Интерактивное голосование · ${escH(date)}</div>
+      </div>
+    </div>
+  </div>
+  <div class="summary">
+    <div class="sum"><b>${answeredCount} из ${questions.length}</b><span>вопросов с ответами</span></div>
+    <div class="sum"><b>${maxParticipants}</b><span>участников (максимум за вопрос)</span></div>
+    <div class="sum"><b>${totalAnswers}</b><span>ответов всего</span></div>
+  </div>
+  ${body}
+  <div class="footer">Сформировано автоматически · fgkvote.ru</div>
 </div>
-${body}
-<script>window.onload = () => window.print();<\/script>
+<script>
+  // Give the web font a moment so the PDF uses it
+  window.onload = () => {
+    const go = () => setTimeout(() => window.print(), 150);
+    (document.fonts && document.fonts.ready) ? document.fonts.ready.then(go) : go();
+  };
+<\/script>
 </body>
 </html>`;
 
