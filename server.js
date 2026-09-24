@@ -196,6 +196,11 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Projector screen: same page, switches to presentation mode by path
+app.get('/screen', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.get('/admin', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -339,8 +344,16 @@ app.post('/admin/questions/reorder', requireAdmin, (req, res) => {
 
 // ── Socket.IO ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
-  // Broadcast updated connected count to all clients
-  const emitCount = () => io.emit('connected_count', { count: io.engine.clientsCount });
+  // Admin and projector tabs identify themselves; everyone else is a participant
+  const role = socket.handshake.query && socket.handshake.query.role;
+  socket.data.role = role === 'admin' || role === 'screen' ? role : 'participant';
+
+  // Broadcast the number of connected participants to all clients
+  const emitCount = () => {
+    let count = 0;
+    for (const s of io.sockets.sockets.values()) if (s.data.role === 'participant') count++;
+    io.emit('connected_count', { count });
+  };
   emitCount();
 
   socket.on('disconnect', () => emitCount());
@@ -353,6 +366,7 @@ io.on('connection', (socket) => {
   socket.emit('initial_state', {
     activeQuestionId: state.activeQuestionId,
     activeQuestion: activeQ ? getPublicQuestion(activeQ) : null,
+    activeVoteCount: activeQ ? state.answers[activeQ.id].length : 0,
     shownResults: state.shownResults || null,
     sessionId: state.sessionId
   });

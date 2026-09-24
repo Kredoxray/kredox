@@ -55,7 +55,7 @@
         </div>
         <div>
           <div class="stat-value"><span id="connected-count">—</span></div>
-          <div class="stat-label">подключено сейчас</div>
+          <div class="stat-label">участников подключено</div>
         </div>
       </div>
       <div class="stat-card">
@@ -84,6 +84,10 @@
         <button class="btn btn-primary btn-sm" onclick="openEditor()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Добавить вопрос
+        </button>
+        <button class="btn btn-soft btn-sm" onclick="window.open('/screen', '_blank')" title="Откройте на компьютере, подключённом к проектору">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Экран для проектора
         </button>
         <button class="btn btn-soft btn-sm" onclick="downloadExcel()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
@@ -197,7 +201,7 @@ async function loadState() {
 
 /* ── Socket ─────────────────────────────────────────────────────────────── */
 function initSocket() {
-  socket = io();
+  socket = io({ query: { role: 'admin' } });
 
   socket.on('connected_count', ({ count }) => {
     document.getElementById('connected-count').textContent = count;

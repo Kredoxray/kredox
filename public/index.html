@@ -33,6 +33,42 @@
     </div>
     <h2>Ожидайте следующий вопрос</h2>
     <p class="waiting-sub">Вопрос появится на экране автоматически</p>
+    <div class="waiting-qr">
+      <div class="qr-box" data-qr></div>
+      <div class="waiting-qr-text">Подключиться с телефона<b data-url></b></div>
+    </div>
+  </div>
+
+  <!-- Projector screen: nothing running -->
+  <div id="view-screen-idle" class="hidden screen-idle">
+    <div class="screen-idle-card">
+      <div class="screen-idle-text">
+        <div class="screen-kicker">Интерактивное голосование</div>
+        <h2>Подключайтесь к голосованию</h2>
+        <p>Наведите камеру телефона на QR-код или откройте в браузере</p>
+        <div class="screen-url" data-url></div>
+        <div class="screen-live"><span class="live-dot"></span>Подключено участников: <b data-participants>0</b></div>
+      </div>
+      <div class="qr-box qr-large" data-qr></div>
+    </div>
+  </div>
+
+  <!-- Projector screen: question in progress -->
+  <div id="view-screen-question" class="hidden screen-question">
+    <div class="card screen-q-card">
+      <div class="screen-kicker"><span class="live-dot"></span>Идёт голосование</div>
+      <h2 id="screen-q-text"></h2>
+      <div id="screen-q-hint" class="scale-label"></div>
+      <div class="screen-counter">
+        <div class="screen-counter-num"><span id="screen-votes">0</span><span class="screen-of"> из <span data-participants>0</span></span></div>
+        <div class="screen-counter-label">участников ответили</div>
+        <div class="screen-progress"><div id="screen-progress-bar"></div></div>
+      </div>
+    </div>
+    <div class="screen-join">
+      <div class="qr-box qr-small" data-qr></div>
+      <div class="screen-join-text">Ещё не подключились?<b data-url></b></div>
+    </div>
   </div>
 
   <!-- Question form -->
@@ -61,7 +97,12 @@
   <div class="matrix-popup-values" id="matrixPopupValues"></div>
 </div>
 <div class="popup-overlay" id="popupOverlay"></div>
+<button type="button" class="fullscreen-btn hidden" id="fullscreen-btn" onclick="toggleFullscreen()">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+  На весь экран
+</button>
 
+<script src="/vendor/qrcode.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 /* ── Utils ─────────────────────────────────────────────────────────────── */
@@ -95,7 +136,8 @@ function applySessionId(id) {
 }
 
 /* ── Views ─────────────────────────────────────────────────────────────── */
-const views = ['waiting','question','voted','results'];
+const views = ['waiting','question','voted','results','screen-idle','screen-question'];
+const SCREEN_MODE = location.pathname.replace(/\/+$/, '') === '/screen';
 
 function showView(name) {
   views.forEach(v => {
@@ -561,6 +603,107 @@ function submitChoice() {
   });
 }
 
+/* ── QR code (blue dots, leaf-shaped finder patterns) ──────────────────── */
+const QR_COLOR = '#1552e6';
+
+function roundedRectPath(x, y, w, h, r) {
+  // r = [topLeft, topRight, bottomRight, bottomLeft]
+  const [tl, tr, br, bl] = r;
+  return `M${x + tl},${y}H${x + w - tr}` + (tr ? `A${tr},${tr} 0 0 1 ${x + w},${y + tr}` : '') +
+    `V${y + h - br}` + (br ? `A${br},${br} 0 0 1 ${x + w - br},${y + h}` : '') +
+    `H${x + bl}` + (bl ? `A${bl},${bl} 0 0 1 ${x},${y + h - bl}` : '') +
+    `V${y + tl}` + (tl ? `A${tl},${tl} 0 0 1 ${x + tl},${y}` : '') + 'Z';
+}
+
+function styledQrSvg(text) {
+  const qr = qrcode(0, 'Q');
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  const inFinder = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+  const dark = (r, c) => r >= 0 && c >= 0 && r < n && c < n && qr.isDark(r, c) && !inFinder(r, c);
+  const pad = 2, rad = 0.42;
+  let body = '';
+
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (!dark(r, c)) continue;
+      body += `<circle cx="${c + 0.5}" cy="${r + 0.5}" r="${rad}"/>`;
+      if (dark(r, c + 1)) body += `<rect x="${c + 0.5}" y="${r + 0.5 - rad}" width="1" height="${rad * 2}"/>`;
+      if (dark(r + 1, c)) body += `<rect x="${c + 0.5 - rad}" y="${r + 0.5}" width="${rad * 2}" height="1"/>`;
+    }
+  }
+
+  // Finder patterns: rounded frame with one sharp corner pointing to the centre + round eye
+  const finder = (x, y, sharp) => {
+    const R = 2.6, Ri = 1.7;
+    const outer = [R, R, R, R], inner = [Ri, Ri, Ri, Ri];
+    outer[sharp] = 0; inner[sharp] = 0;
+    return `<path fill-rule="evenodd" d="${roundedRectPath(x, y, 7, 7, outer)}${roundedRectPath(x + 1, y + 1, 5, 5, inner)}"/>` +
+      `<circle cx="${x + 3.5}" cy="${y + 3.5}" r="1.6"/>`;
+  };
+  body += finder(0, 0, 2) + finder(n - 7, 0, 3) + finder(0, n - 7, 1);
+
+  const vb = `${-pad} ${-pad} ${n + pad * 2} ${n + pad * 2}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="QR-код для подключения">` +
+    `<rect x="${-pad}" y="${-pad}" width="${n + pad * 2}" height="${n + pad * 2}" fill="#fff"/>` +
+    `<g fill="${QR_COLOR}">${body}</g></svg>`;
+}
+
+function renderJoinInfo() {
+  const url = location.origin + '/';
+  let svg = '';
+  try { svg = styledQrSvg(url); } catch (e) { console.error(e); }
+  document.querySelectorAll('[data-qr]').forEach(el => { el.innerHTML = svg; });
+  document.querySelectorAll('[data-url]').forEach(el => { el.textContent = location.host; });
+}
+
+/* ── Projector screen mode ─────────────────────────────────────────────── */
+let screenQuestionId = null;
+let participantsCount = 0;
+let screenVotes = 0;
+
+function updateScreenCounter() {
+  document.getElementById('screen-votes').textContent = screenVotes;
+  const pct = participantsCount > 0 ? Math.min(100, Math.round(screenVotes / participantsCount * 100)) : 0;
+  document.getElementById('screen-progress-bar').style.width = pct + '%';
+}
+
+function showScreenQuestion(q, votes) {
+  screenQuestionId = q.id;
+  screenVotes = votes || 0;
+  document.getElementById('screen-q-text').textContent = q.text;
+  const hint = q.hint || q.scaleLabel || q.matrixDescription || (q.type === 'open_text' ? 'Ответьте своими словами' : '');
+  const hintEl = document.getElementById('screen-q-hint');
+  hintEl.textContent = hint;
+  hintEl.classList.toggle('hidden', !hint);
+  updateScreenCounter();
+  showView('screen-question');
+}
+
+function showScreenIdle() {
+  screenQuestionId = null;
+  showView('screen-idle');
+}
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+}
+
+if (SCREEN_MODE) {
+  document.body.classList.add('screen-mode');
+  document.title = 'Экран голосования';
+  const fsBtn = document.getElementById('fullscreen-btn');
+  if (document.documentElement.requestFullscreen) fsBtn.classList.remove('hidden');
+  document.addEventListener('fullscreenchange', () => {
+    fsBtn.classList.toggle('hidden', !!document.fullscreenElement);
+  });
+  document.addEventListener('dblclick', toggleFullscreen);
+  showScreenIdle();
+}
+renderJoinInfo();
+
 /* ── Question Loader ───────────────────────────────────────────────────── */
 function loadQuestion(q) {
   if (!q) { showView('waiting'); return; }
@@ -596,11 +739,17 @@ function showToast(msg) {
 }
 
 /* ── Socket.IO ─────────────────────────────────────────────────────────── */
-const socket = io();
+const socket = io(SCREEN_MODE ? { query: { role: 'screen' } } : undefined);
 
 socket.on('connect', () => {});
 
-socket.on('initial_state', ({ activeQuestion, shownResults, sessionId }) => {
+socket.on('initial_state', ({ activeQuestion, activeVoteCount, shownResults, sessionId }) => {
+  if (SCREEN_MODE) {
+    if (shownResults) renderResults(shownResults);
+    else if (activeQuestion) showScreenQuestion(activeQuestion, activeVoteCount);
+    else showScreenIdle();
+    return;
+  }
   applySessionId(sessionId);
   if (shownResults) {
     renderResults(shownResults);
@@ -612,7 +761,20 @@ socket.on('initial_state', ({ activeQuestion, shownResults, sessionId }) => {
 });
 
 socket.on('question_activated', ({ question }) => {
+  if (SCREEN_MODE) { showScreenQuestion(question, 0); return; }
   loadQuestion(question);
+});
+
+socket.on('vote_count_update', ({ questionId, count }) => {
+  if (!SCREEN_MODE || questionId !== screenQuestionId) return;
+  screenVotes = count;
+  updateScreenCounter();
+});
+
+socket.on('connected_count', ({ count }) => {
+  participantsCount = count;
+  document.querySelectorAll('[data-participants]').forEach(el => { el.textContent = count; });
+  if (SCREEN_MODE && screenQuestionId) updateScreenCounter();
 });
 
 socket.on('question_closed', ({ questionId, results }) => {
@@ -624,6 +786,7 @@ socket.on('session_updated', ({ sessionId }) => {
 });
 
 socket.on('clear_local_storage', () => {
+  if (SCREEN_MODE) { showScreenIdle(); return; }
   localStorage.removeItem('voting_answered');
   showView('waiting');
 });
