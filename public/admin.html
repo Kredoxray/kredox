@@ -4,45 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Админ-панель | Интерактивное голосование</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="/style.css">
-  <style>
-    .admin-results-block {
-      padding: 0 20px 20px;
-      animation: fadeIn 0.3s ease;
-    }
-    .result-item-section-admin {
-      margin-bottom: 20px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--color-border);
-    }
-    .result-item-section-admin:last-child { border-bottom: none; }
-    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-    .active-indicator {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: #f0fff4; color: #276749;
-      padding: 6px 14px; border-radius: 20px;
-      font-size: 0.82rem; font-weight: 700;
-      border: 1px solid #9ae6b4;
-    }
-    .active-indicator .dot {
-      width: 8px; height: 8px; border-radius: 50%; background: #38a169;
-      animation: blink 1s ease-in-out infinite;
-    }
-    .panel-loading {
-      text-align: center; padding: 48px; color: var(--color-text-light);
-    }
-    .results-matrix-admin { overflow-x: auto; }
-    .q-number {
-      font-size: 0.72rem; font-weight: 700; color: var(--color-text-light);
-      margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
-    }
-  </style>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/admin.css">
 </head>
 <body>
 
 <!-- Login Screen -->
 <div id="login-screen" class="login-page">
   <div class="card login-card">
+    <span class="brand-mark login-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 20V11M12 20V4M18 20v-6"/></svg></span>
     <h2>Вход в админ-панель</h2>
     <p class="login-subtitle">Введите пароль для доступа к управлению голосованием</p>
     <div class="form-group">
@@ -59,31 +33,70 @@
 <!-- Admin Panel -->
 <div id="admin-panel" class="admin-layout hidden">
 
-  <header class="page-header">
-    <h1>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5L12 1z"/>
-      </svg>
-      Панель управления голосованием
-    </h1>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div class="subtitle" id="active-indicator-header"></div>
-      <div id="connected-badge" style="display:none;align-items:center;gap:6px;background:#ebf4ff;color:#2b6cb0;padding:5px 12px;border-radius:20px;font-size:0.82rem;font-weight:700;border:1px solid #bee3f8;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
-        <span id="connected-count">0</span> подключено
+  <header class="page-header admin-header">
+    <div class="admin-header-inner">
+      <div class="admin-brand">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 20V11M12 20V4M18 20v-6"/></svg></span>
+        <div>
+          <div class="admin-brand-title">Панель управления</div>
+          <div class="admin-brand-sub">Интерактивное голосование</div>
+        </div>
       </div>
+      <div id="active-indicator-header"></div>
     </div>
   </header>
 
   <div class="admin-main">
 
+    <div class="stats-row">
+      <div class="stat-card" id="connected-badge">
+        <div class="stat-icon stat-icon-blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <div class="stat-value"><span id="connected-count">—</span></div>
+          <div class="stat-label">подключено сейчас</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+        </div>
+        <div>
+          <div class="stat-value" id="stat-status">—</div>
+          <div class="stat-label">текущий вопрос</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-violet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div>
+          <div class="stat-value" id="stat-progress">—</div>
+          <div class="stat-label">вопросов завершено</div>
+        </div>
+      </div>
+    </div>
+
     <div class="admin-toolbar">
       <h2>Вопросы</h2>
       <div class="btn-group">
-        <button class="btn btn-success btn-sm" onclick="downloadExcel()">Скачать Excel</button>
-        <button class="btn btn-primary btn-sm" onclick="window.open('/admin/results-print','_blank')">Скачать PDF</button>
-        <button class="btn btn-danger btn-sm" onclick="resetAllClientVotes()">Сбросить голоса у участников</button>
-        <button class="btn btn-outline btn-sm" onclick="doLogout()">Выйти</button>
+        <button class="btn btn-soft btn-sm" onclick="downloadExcel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Excel
+        </button>
+        <button class="btn btn-soft btn-sm" onclick="window.open('/admin/results-print','_blank')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          PDF
+        </button>
+        <button class="btn btn-danger-soft btn-sm" onclick="resetAllClientVotes()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          Сбросить голоса у участников
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Выйти
+        </button>
       </div>
     </div>
 
@@ -280,11 +293,16 @@ function renderQuestions() {
   // Update active indicator in header
   const hdrIndicator = document.getElementById('active-indicator-header');
   if (appState.activeQuestionId) {
-    const aq = appState.questions.find(q => q.id === appState.activeQuestionId);
     hdrIndicator.innerHTML = `<span class="active-indicator"><span class="dot"></span>Идёт голосование</span>`;
   } else {
     hdrIndicator.innerHTML = '';
   }
+
+  const activeIdx = appState.questions.findIndex(q => q.id === appState.activeQuestionId);
+  document.getElementById('stat-status').textContent =
+    activeIdx >= 0 ? `Вопрос ${activeIdx + 1}` : 'Нет активного';
+  const closedCount = appState.questions.filter(q => q.status === 'closed').length;
+  document.getElementById('stat-progress').textContent = `${closedCount} из ${appState.questions.length}`;
 
   let html = '';
   appState.questions.forEach((q, idx) => {
@@ -295,8 +313,8 @@ function renderQuestions() {
 
     // Header
     html += `<div class="question-admin-header">`;
+    html += `<div class="q-index">${idx + 1}</div>`;
     html += `<div class="question-admin-meta">`;
-    html += `<div class="q-number">Вопрос ${idx + 1}</div>`;
     html += `<div class="question-admin-type">${TYPE_LABELS[q.type] || q.type}</div>`;
     html += `<div class="question-admin-text">${escHtml(q.text)}</div>`;
     html += `</div>`;
@@ -307,11 +325,11 @@ function renderQuestions() {
     if (isActive) {
       // Status + vote count + close button
       html += `<span class="status-badge active"><span class="status-dot"></span>Активен</span>`;
-      html += `<span class="vote-counter">👥 <span id="vote-count-${q.id}">${q.voteCount || 0}</span></span>`;
+      html += `<span class="vote-counter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span id="vote-count-${q.id}">${q.voteCount || 0}</span></span>`;
       html += `<button class="btn btn-danger btn-sm" onclick="closeQuestion('${q.id}')">Завершить</button>`;
     } else if (isClosed) {
       html += `<span class="status-badge closed"><span class="status-dot"></span>Завершён</span>`;
-      html += `<span class="vote-counter">👥 ${q.voteCount || 0}</span>`;
+      html += `<span class="vote-counter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${q.voteCount || 0}</span>`;
       html += `<button class="btn btn-outline btn-sm" onclick="toggleAdminResults('${q.id}')">Результаты</button>`;
       html += `<button class="btn btn-primary btn-sm" onclick="showResultsToAll('${q.id}')">Показать участникам</button>`;
       html += `<button class="btn btn-success btn-sm" onclick="activateQuestion('${q.id}')">Открыть снова</button>`;
