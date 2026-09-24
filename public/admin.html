@@ -106,7 +106,9 @@ let socket = null;
 const TYPE_LABELS = {
   scale_multi: 'Шкала 1–7',
   open_text: 'Открытый вопрос',
-  matrix: 'Матрица'
+  matrix: 'Матрица',
+  single_choice: 'Один вариант',
+  multi_choice: 'Несколько вариантов'
 };
 
 /* ── Auth ───────────────────────────────────────────────────────────────── */
@@ -389,6 +391,19 @@ function buildResultsHtml(results) {
       }
       html += `</div>`;
     });
+  }
+
+  if (results.type === 'single_choice' || results.type === 'multi_choice') {
+    const maxCount = Math.max(...results.options.map(o => o.count), 1);
+    html += `<div class="bar-chart">`;
+    results.options.forEach(o => {
+      html += `<div class="result-item-title" style="margin-top:8px">${escHtml(o.text)}</div>
+        <div class="bar-row">
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(o.count / maxCount * 100)}%"></div></div>
+          <span class="bar-count" style="width:auto">${o.count} (${o.pct}%)</span>
+        </div>`;
+    });
+    html += `</div>`;
   }
 
   if (results.type === 'matrix') {

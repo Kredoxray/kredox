@@ -728,6 +728,20 @@ h3 { font-size: 1.1rem; }
   flex: 1;
 }
 
+/* multi_choice: square checkboxes with a tick */
+.choice-options.multi .choice-check { border-radius: 6px; }
+.choice-options.multi .choice-check.checked::after {
+  top: 3px;
+  left: 7px;
+  width: 6px;
+  height: 11px;
+  border-radius: 0;
+  background: none;
+  border: solid #fff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+
 /* Single choice results */
 .choice-results {
   display: flex;
@@ -1307,4 +1321,19 @@ body.results-mode .results-matrix-table td {
     font-size: 0.85rem;
     margin-bottom: 6px;
   }
+}
+
+/* Choice results on projector: larger text, fills the screen */
+body.results-mode .choice-results { gap: 22px; }
+body.results-mode .choice-result-row { grid-template-columns: 1.3fr 2fr auto; gap: 24px; }
+body.results-mode .choice-result-text { font-size: 1.2rem; }
+body.results-mode .choice-result-bar-wrap { height: 36px; border-radius: 8px; }
+body.results-mode .choice-result-bar { border-radius: 8px; }
+body.results-mode .choice-result-stat { font-size: 1.6rem; min-width: 120px; }
+body.results-mode .choice-result-pct { font-size: 1.1rem; }
+@media (max-width: 680px) {
+  body.results-mode .choice-result-row { grid-template-columns: 1fr auto; gap: 8px 12px; }
+  body.results-mode .choice-result-text { grid-column: 1 / -1; font-size: 1rem; }
+  body.results-mode .choice-result-bar-wrap { height: 22px; }
+  body.results-mode .choice-result-stat { font-size: 1.1rem; min-width: 0; }
 }

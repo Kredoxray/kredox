@@ -68,13 +68,17 @@ function computeResults(questionId) {
     };
   }
 
-  if (question.type === 'single_choice') {
+  if (question.type === 'single_choice' || question.type === 'multi_choice') {
     const counts = {};
     question.options.forEach(o => { counts[o.id] = 0; });
-    answers.forEach(a => { if (a.optionId && counts[a.optionId] !== undefined) counts[a.optionId]++; });
+    answers.forEach(a => {
+      const ids = a.optionIds || (a.optionId ? [a.optionId] : []);
+      ids.forEach(id => { if (counts[id] !== undefined) counts[id]++; });
+    });
+    // % of respondents who picked the option
     const total = answers.length;
     return {
-      type: 'single_choice',
+      type: question.type,
       questionText: question.text,
       options: question.options.map(o => ({
         id: o.id,
@@ -174,6 +178,9 @@ function getPublicQuestion(q) {
     scaleLabel: q.scaleLabel || null,
     items: q.items || null,
     options: q.options || null,
+    hint: q.hint || null,
+    minSelect: q.minSelect || null,
+    maxSelect: q.maxSelect || null,
     matrixDescription: q.matrixDescription || null,
     rows: q.rows || null,
     columns: q.columns || null,
@@ -349,6 +356,19 @@ io.on('connection', (socket) => {
       return callback && callback({ error: 'Question is not active' });
     }
 
+    const question = questions.find(q => q.id === questionId);
+    if (question && question.type === 'multi_choice') {
+      const validIds = new Set(question.options.map(o => o.id));
+      const ids = Array.isArray(answer && answer.optionIds)
+        ? [...new Set(answer.optionIds)].filter(id => validIds.has(id))
+        : [];
+      if (ids.length < (question.minSelect || 1) ||
+          (question.maxSelect && ids.length > question.maxSelect)) {
+        return callback && callback({ error: 'Неверное количество вариантов' });
+      }
+      answer.optionIds = ids;
+    }
+
     state.answers[questionId].push(answer);
     const count = state.answers[questionId].length;
 
@@ -377,7 +397,7 @@ app.get('/admin/export', (req, res) => {
     rows.push([`Ответов: ${results.totalCount || results.count || 0}`]);
     rows.push([]);
 
-    if (results.type === 'single_choice') {
+    if (results.type === 'single_choice' || results.type === 'multi_choice') {
       rows.push(['Вариант', 'Голосов', '%']);
       results.options.forEach(o => rows.push([o.text, o.count, o.pct + '%']));
     }
@@ -491,7 +511,7 @@ app.get('/admin/results-print', (req, res) => {
     }
 
     // ── single_choice ──
-    if (results.type === 'single_choice') {
+    if (results.type === 'single_choice' || results.type === 'multi_choice') {
       const maxC = Math.max(...results.options.map(o => o.count), 1);
       body += `<div class="choice-results">`;
       results.options.forEach(opt => {
