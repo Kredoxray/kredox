@@ -4,20 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Интерактивное голосование</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/theme.css">
 </head>
 <body>
 
 <header class="page-header">
-  <h1>Интерактивное голосование</h1>
+  <h1>
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 20V11M12 20V4M18 20v-6"/></svg>
+    </span>
+    Интерактивное голосование
+  </h1>
 </header>
 
 <main class="main-content" id="app">
 
   <!-- Waiting state -->
   <div id="view-waiting" class="waiting-state">
-    <h2>Ожидайте следующий вопрос...</h2>
-    <div class="pulse-dot"><span></span><span></span><span></span></div>
+    <div class="waiting-orb" aria-hidden="true">
+      <span></span><span></span>
+      <div class="waiting-core">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 20V11M12 20V4M18 20v-6"/></svg>
+      </div>
+    </div>
+    <h2>Ожидайте следующий вопрос</h2>
+    <p class="waiting-sub">Вопрос появится на экране автоматически</p>
   </div>
 
   <!-- Question form -->
@@ -27,7 +42,9 @@
 
   <!-- Already voted -->
   <div id="view-voted" class="hidden status-message">
-    <div class="status-icon">✅</div>
+    <div class="status-icon" aria-hidden="true">
+      <svg class="check-anim" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg>
+    </div>
     <h2>Ваш ответ принят</h2>
     <p>Ожидайте завершения голосования и результатов.</p>
   </div>
@@ -347,10 +364,12 @@ function renderResults(results) {
     } else {
       const maxCount = Math.max(...results.options.map(o => o.count), 1);
       html += `<div class="choice-results">`;
+      const topCount = Math.max(...results.options.map(o => o.count));
       results.options.forEach(opt => {
         const pct = opt.pct;
+        const isTop = topCount > 0 && opt.count === topCount;
         const barPct = Math.round((opt.count / maxCount) * 100);
-        html += `<div class="choice-result-row">
+        html += `<div class="choice-result-row${isTop ? ' top' : ''}">
           <div class="choice-result-text">${escHtml(opt.text)}</div>
           <div class="choice-result-bar-wrap">
             <div class="choice-result-bar" style="width:${barPct}%"></div>
