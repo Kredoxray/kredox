@@ -5,7 +5,8 @@ const { Server } = require('socket.io');
 const session = require('express-session');
 const XLSX = require('xlsx');
 const path = require('path');
-const questions = require('./questions');
+const questionStore = require('./questionStore');
+const questions = questionStore.load();
 
 const app = express();
 const server = http.createServer(app);
@@ -42,6 +43,7 @@ const state = {
   answers: {},            // { questionId: [answer, ...] }
   lastResults: {},        // { questionId: computedResults }
   shownResults: null,     // results currently displayed to participants
+  shownResultsId: null,   // question id of shownResults
   sessionId: Date.now().toString()
 };
 
@@ -57,6 +59,7 @@ function isAdmin(socket) {
 
 function computeResults(questionId) {
   const question = questions.find(q => q.id === questionId);
+  if (!question) return null;
   const answers = state.answers[questionId] || [];
 
   if (question.type === 'open_text') {
@@ -241,6 +244,99 @@ app.get('/admin/results/:questionId', (req, res) => {
   res.json(results);
 });
 
+// ── Question editor (admin) ─────────────────────────────────────────────────
+function requireAdmin(req, res, next) {
+  if (!(req.session && req.session.isAdmin)) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+}
+
+function persistQuestions() {
+  questionStore.save(questions);
+  io.emit('questions_changed');
+}
+
+// Drops answers/results of a question (used when its content changes)
+function clearQuestionData(id) {
+  state.answers[id] = [];
+  delete state.lastResults[id];
+  state.questionStatuses[id] = 'inactive';
+  if (state.shownResultsId === id) {
+    state.shownResults = null;
+    state.shownResultsId = null;
+  }
+}
+
+function sendEditorError(res, e) {
+  if (e.userError) return res.status(400).json({ error: e.message });
+  console.error(e);
+  res.status(500).json({ error: 'Не удалось сохранить вопросы на сервере' });
+}
+
+app.post('/admin/questions', requireAdmin, (req, res) => {
+  try {
+    const id = questionStore.newQuestionId(new Set(questions.map(q => q.id)));
+    const q = questionStore.sanitize(req.body && req.body.question, id);
+    const pos = Number.isInteger(req.body.position) ? req.body.position : questions.length;
+    questions.splice(Math.max(0, Math.min(pos, questions.length)), 0, q);
+    state.questionStatuses[id] = 'inactive';
+    state.answers[id] = [];
+    persistQuestions();
+    res.json({ success: true, question: q });
+  } catch (e) { sendEditorError(res, e); }
+});
+
+app.put('/admin/questions/:id', requireAdmin, (req, res) => {
+  const idx = questions.findIndex(q => q.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Вопрос не найден' });
+  const id = questions[idx].id;
+  if (state.activeQuestionId === id) {
+    return res.status(409).json({ error: 'Сначала завершите голосование по этому вопросу' });
+  }
+  const answerCount = state.answers[id].length;
+  if (answerCount > 0 && !(req.body && req.body.confirmReset)) {
+    return res.status(409).json({ error: `У вопроса есть ответы (${answerCount}). Подтвердите их сброс.`, needsConfirm: true });
+  }
+  try {
+    const q = questionStore.sanitize(req.body && req.body.question, id);
+    questions[idx] = q;
+    if (answerCount > 0 || state.questionStatuses[id] === 'closed') clearQuestionData(id);
+    persistQuestions();
+    res.json({ success: true, question: q });
+  } catch (e) { sendEditorError(res, e); }
+});
+
+app.delete('/admin/questions/:id', requireAdmin, (req, res) => {
+  const idx = questions.findIndex(q => q.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Вопрос не найден' });
+  const id = questions[idx].id;
+  if (state.activeQuestionId === id) {
+    return res.status(409).json({ error: 'Сначала завершите голосование по этому вопросу' });
+  }
+  try {
+    questions.splice(idx, 1);
+    clearQuestionData(id);
+    delete state.answers[id];
+    delete state.questionStatuses[id];
+    persistQuestions();
+    res.json({ success: true });
+  } catch (e) { sendEditorError(res, e); }
+});
+
+app.post('/admin/questions/reorder', requireAdmin, (req, res) => {
+  const ids = req.body && req.body.ids;
+  const current = questions.map(q => q.id);
+  if (!Array.isArray(ids) || ids.length !== current.length ||
+      new Set(ids).size !== ids.length || !ids.every(id => current.includes(id))) {
+    return res.status(400).json({ error: 'Список вопросов изменился, обновите страницу' });
+  }
+  try {
+    const byId = new Map(questions.map(q => [q.id, q]));
+    questions.splice(0, questions.length, ...ids.map(id => byId.get(id)));
+    persistQuestions();
+    res.json({ success: true });
+  } catch (e) { sendEditorError(res, e); }
+});
+
 // ── Socket.IO ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   // Broadcast updated connected count to all clients
@@ -304,6 +400,7 @@ io.on('connection', (socket) => {
     const results = computeResults(questionId);
     state.lastResults[questionId] = results;
     state.shownResults = results;
+    state.shownResultsId = questionId;
 
     io.emit('question_closed', { questionId, results });
 
@@ -315,8 +412,10 @@ io.on('connection', (socket) => {
     if (!isAdmin(socket)) return callback && callback({ error: 'Unauthorized' });
 
     const { questionId } = data;
+    if (!questions.some(q => q.id === questionId)) return callback && callback({ error: 'Вопрос не найден' });
     const results = state.lastResults[questionId] || computeResults(questionId);
     state.shownResults = results;
+    state.shownResultsId = questionId;
 
     io.emit('question_closed', { questionId, results });
 
@@ -328,6 +427,7 @@ io.on('connection', (socket) => {
     if (!isAdmin(socket)) return callback && callback({ error: 'Unauthorized' });
 
     const { questionId } = data;
+    if (!questions.some(q => q.id === questionId)) return callback && callback({ error: 'Вопрос не найден' });
     state.answers[questionId] = [];
     delete state.lastResults[questionId];
     if (state.activeQuestionId === questionId) {

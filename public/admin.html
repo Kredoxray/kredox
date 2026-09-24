@@ -81,6 +81,10 @@
     <div class="admin-toolbar">
       <h2>Вопросы</h2>
       <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="openEditor()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Добавить вопрос
+        </button>
         <button class="btn btn-soft btn-sm" onclick="downloadExcel()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           Excel
@@ -104,6 +108,24 @@
       <div class="panel-loading">Загрузка...</div>
     </div>
 
+  </div>
+
+  <!-- Question editor -->
+  <div id="editor-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <h3 id="editor-title">Новый вопрос</h3>
+        <button class="icon-btn" title="Закрыть" onclick="closeEditor()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="editor-body"></div>
+      <div class="modal-foot">
+        <div id="editor-error" class="editor-error hidden"></div>
+        <button class="btn btn-ghost" onclick="closeEditor()">Отмена</button>
+        <button class="btn btn-primary" id="editor-save" onclick="saveEditor()">Сохранить</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -181,6 +203,8 @@ function initSocket() {
     document.getElementById('connected-count').textContent = count;
     document.getElementById('connected-badge').style.display = 'flex';
   });
+
+  socket.on('questions_changed', () => loadState());
 
   socket.on('vote_count_update', ({ questionId, count }) => {
     const q = appState.questions.find(q => q.id === questionId);
@@ -344,6 +368,12 @@ function renderQuestions() {
       }
     }
 
+    html += `<div class="q-tools">
+      <button class="icon-btn" title="${isActive ? 'Сначала завершите голосование' : 'Изменить'}" onclick="openEditor('${q.id}')" ${isActive ? 'disabled' : ''}>${ICONS.edit}</button>
+      <button class="icon-btn" title="Выше" onclick="moveQuestion('${q.id}', -1)" ${idx === 0 ? 'disabled' : ''}>${ICONS.up}</button>
+      <button class="icon-btn" title="Ниже" onclick="moveQuestion('${q.id}', 1)" ${idx === appState.questions.length - 1 ? 'disabled' : ''}>${ICONS.down}</button>
+      <button class="icon-btn icon-btn-danger" title="${isActive ? 'Сначала завершите голосование' : 'Удалить'}" onclick="deleteQuestion('${q.id}')" ${isActive ? 'disabled' : ''}>${ICONS.trash}</button>
+    </div>`;
     html += `</div>`; // actions
     html += `</div>`; // header
 
@@ -356,6 +386,13 @@ function renderQuestions() {
 
     html += `</div>`; // card
   });
+
+  if (!appState.questions.length) {
+    html = `<div class="empty-state">
+      <div class="empty-title">Вопросов пока нет</div>
+      <p>Нажмите «Добавить вопрос», чтобы создать первый.</p>
+    </div>`;
+  }
 
   container.innerHTML = html;
 }
@@ -491,6 +528,258 @@ function showToast(msg, type = 'error') {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 4000);
 }
+
+/* ── Question editor ────────────────────────────────────────────────────── */
+const ICONS = {
+  edit:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  up:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>',
+  down:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>',
+  x:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+};
+
+const EDITOR_TYPES = [
+  { type: 'single_choice', title: 'Один вариант',        desc: 'Выбор одного ответа' },
+  { type: 'multi_choice',  title: 'Несколько вариантов', desc: 'Можно отметить несколько' },
+  { type: 'scale_multi',   title: 'Шкала 1–7',           desc: 'Оценка каждого пункта' },
+  { type: 'open_text',     title: 'Открытый вопрос',     desc: 'Ответ своими словами' },
+  { type: 'matrix',        title: 'Матрица',             desc: 'Варианты × критерии' }
+];
+const DEFAULT_SCALE_LABEL = '1 – категорически не поддерживаю, 2 – не поддерживаю, 3 – скорее не поддерживаю, 4 – затрудняюсь ответить, 5 – скорее поддерживаю, 6 – поддерживаю, 7 – в высшей степени поддерживаю';
+
+let editor = null;
+
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+
+// Same wording the server generates, so auto hints are not shown as custom text
+function autoHint(q) {
+  if (q.type === 'single_choice') return 'Выберите один вариант';
+  const min = q.minSelect || 1, max = q.maxSelect || null;
+  if (max && min === max) return `Выберите ${min} ${plural(min, 'вариант', 'варианта', 'вариантов')}`;
+  if (max) return `Выберите от ${min} до ${max} ${plural(max, 'варианта', 'вариантов', 'вариантов')}`;
+  return min > 1 ? `Выберите не менее ${min} вариантов` : 'Выберите все подходящие варианты';
+}
+
+function openEditor(id) {
+  const q = id ? appState.questions.find(x => x.id === id) : null;
+  const list = q ? (q.options || q.items || []).map(o => ({ id: o.id, text: o.text, hasInput: !!o.hasInput })) : [];
+  editor = {
+    id: q ? q.id : null,
+    voteCount: q ? (q.voteCount || 0) : 0,
+    type: q ? q.type : 'single_choice',
+    text: q ? q.text : '',
+    hint: q && q.hint && q.hint !== autoHint(q) ? q.hint : '',
+    minSelect: q && q.minSelect ? q.minSelect : 1,
+    maxSelect: q && q.maxSelect ? q.maxSelect : '',
+    list: list.length ? list : [{ text: '' }, { text: '' }],
+    scaleLabel: q && q.scaleLabel ? q.scaleLabel : DEFAULT_SCALE_LABEL,
+    matrixDescription: q && q.matrixDescription ? q.matrixDescription : '',
+    rows: q && q.rows ? q.rows.map(t => ({ text: t })) : [{ text: '' }],
+    columns: q && q.columns ? q.columns.map(t => ({ text: t })) : [{ text: '' }, { text: '' }],
+    cellMin: q && q.cellValues ? q.cellValues[0] : 1,
+    cellMax: q && q.cellValues ? q.cellValues[q.cellValues.length - 1] : 5
+  };
+  document.getElementById('editor-title').textContent = q ? 'Редактирование вопроса' : 'Новый вопрос';
+  document.getElementById('editor-error').classList.add('hidden');
+  renderEditor();
+  document.getElementById('editor-modal').classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  setTimeout(() => {
+    const t = document.getElementById('ed-text');
+    const modal = document.getElementById('editor-modal');
+    if (t && !modal.contains(document.activeElement)) t.focus();
+  }, 50);
+}
+
+function closeEditor() {
+  editor = null;
+  document.getElementById('editor-modal').classList.add('hidden');
+  document.body.classList.remove('modal-open');
+}
+
+function setEditorType(type) {
+  editor.type = type;
+  renderEditor();
+}
+
+function listEditor(key, { label, placeholder, addLabel, withOther }) {
+  const items = editor[key];
+  let h = `<div class="ed-field"><label class="ed-label">${label}</label><div class="le">`;
+  items.forEach((it, i) => {
+    h += `<div class="le-row">
+      <span class="le-num">${i + 1}</span>
+      <input class="form-input" id="le-${key}-${i}" value="${escHtml(it.text)}" placeholder="${placeholder}"
+        oninput="editor.${key}[${i}].text = this.value">
+      ${withOther ? `<label class="le-other" title="Участник сможет вписать свой вариант"><input type="checkbox" ${it.hasInput ? 'checked' : ''} onchange="editor.${key}[${i}].hasInput = this.checked"> своё поле</label>` : ''}
+      <button type="button" class="icon-btn" title="Выше" onclick="moveListItem('${key}', ${i}, -1)" ${i === 0 ? 'disabled' : ''}>${ICONS.up}</button>
+      <button type="button" class="icon-btn" title="Ниже" onclick="moveListItem('${key}', ${i}, 1)" ${i === items.length - 1 ? 'disabled' : ''}>${ICONS.down}</button>
+      <button type="button" class="icon-btn icon-btn-danger" title="Удалить" onclick="removeListItem('${key}', ${i})">${ICONS.x}</button>
+    </div>`;
+  });
+  h += `</div><button type="button" class="btn btn-soft btn-sm le-add" onclick="addListItem('${key}')">+ ${addLabel}</button></div>`;
+  return h;
+}
+
+function addListItem(key) {
+  editor[key].push({ text: '' });
+  renderEditor();
+  const el = document.getElementById(`le-${key}-${editor[key].length - 1}`);
+  if (el) el.focus();
+}
+function removeListItem(key, i) { editor[key].splice(i, 1); renderEditor(); }
+function moveListItem(key, i, dir) {
+  const j = i + dir, arr = editor[key];
+  if (j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  renderEditor();
+}
+
+function renderEditor() {
+  const e = editor;
+  let h = '';
+
+  if (e.id && e.voteCount > 0) {
+    h += `<div class="ed-warning">У этого вопроса уже есть ответы (${e.voteCount}). После сохранения они будут удалены, и вопрос можно будет провести заново.</div>`;
+  }
+
+  h += `<div class="ed-field"><label class="ed-label">Тип вопроса</label><div class="type-grid">`;
+  EDITOR_TYPES.forEach(t => {
+    h += `<button type="button" class="type-tile ${e.type === t.type ? 'selected' : ''}" onclick="setEditorType('${t.type}')">
+      <span class="type-title">${t.title}</span><span class="type-desc">${t.desc}</span></button>`;
+  });
+  h += `</div></div>`;
+
+  h += `<div class="ed-field"><label class="ed-label" for="ed-text">Текст вопроса</label>
+    <textarea class="form-textarea" id="ed-text" rows="3" maxlength="1000" placeholder="Например: Какие направления развития Вы считаете приоритетными?"
+      oninput="editor.text = this.value">${escHtml(e.text)}</textarea></div>`;
+
+  if (e.type === 'single_choice' || e.type === 'multi_choice') {
+    h += listEditor('list', { label: 'Варианты ответа', placeholder: 'Текст варианта', addLabel: 'Добавить вариант' });
+    if (e.type === 'multi_choice') {
+      h += `<div class="ed-field ed-inline">
+        <div><label class="ed-label">Минимум выбрать</label>
+          <input class="form-input ed-num" type="number" min="1" value="${escHtml(String(e.minSelect))}" oninput="editor.minSelect = this.value"></div>
+        <div><label class="ed-label">Максимум выбрать</label>
+          <input class="form-input ed-num" type="number" min="1" placeholder="без ограничения" value="${escHtml(String(e.maxSelect))}" oninput="editor.maxSelect = this.value"></div>
+      </div>`;
+    }
+    h += `<div class="ed-field"><label class="ed-label">Подсказка участникам <span class="ed-opt">необязательно, по умолчанию сформируется сама</span></label>
+      <input class="form-input" maxlength="200" value="${escHtml(e.hint)}" placeholder="${e.type === 'single_choice' ? 'Выберите один вариант' : 'Например: Выберите от одного до трех вариантов'}" oninput="editor.hint = this.value"></div>`;
+  }
+
+  if (e.type === 'scale_multi') {
+    h += listEditor('list', { label: 'Пункты для оценки по шкале 1–7', placeholder: 'Что оценивают участники', addLabel: 'Добавить пункт', withOther: true });
+    h += `<div class="ed-field"><label class="ed-label">Легенда шкалы</label>
+      <textarea class="form-textarea" rows="3" maxlength="500" oninput="editor.scaleLabel = this.value">${escHtml(e.scaleLabel)}</textarea></div>`;
+  }
+
+  if (e.type === 'matrix') {
+    h += listEditor('columns', { label: 'Столбцы — варианты', placeholder: 'Название варианта', addLabel: 'Добавить столбец' });
+    h += listEditor('rows', { label: 'Строки — критерии', placeholder: 'Критерий оценки', addLabel: 'Добавить строку' });
+    h += `<div class="ed-field ed-inline">
+      <div><label class="ed-label">Минимальная оценка</label>
+        <input class="form-input ed-num" type="number" min="0" max="9" value="${escHtml(String(e.cellMin))}" oninput="editor.cellMin = this.value"></div>
+      <div><label class="ed-label">Максимальная оценка</label>
+        <input class="form-input ed-num" type="number" min="1" max="10" value="${escHtml(String(e.cellMax))}" oninput="editor.cellMax = this.value"></div>
+    </div>`;
+    h += `<div class="ed-field"><label class="ed-label">Пояснение для участников <span class="ed-opt">необязательно</span></label>
+      <textarea class="form-textarea" rows="2" maxlength="500" oninput="editor.matrixDescription = this.value">${escHtml(e.matrixDescription)}</textarea></div>`;
+  }
+
+  if (e.type === 'open_text') {
+    h += `<div class="ed-note">Участники ответят своими словами. На экране результатов ответы будут показаны облаком высказываний.</div>`;
+  }
+
+  document.getElementById('editor-body').innerHTML = h;
+}
+
+async function saveEditor() {
+  const e = editor;
+  if (!e) return;
+  const errEl = document.getElementById('editor-error');
+  errEl.classList.add('hidden');
+
+  const question = {
+    type: e.type,
+    text: e.text,
+    hint: e.hint,
+    minSelect: e.minSelect,
+    maxSelect: e.maxSelect === '' ? null : e.maxSelect,
+    options: e.list,
+    items: e.list,
+    scaleLabel: e.scaleLabel,
+    matrixDescription: e.matrixDescription,
+    rows: e.rows,
+    columns: e.columns,
+    cellMin: e.cellMin,
+    cellMax: e.cellMax
+  };
+
+  const btn = document.getElementById('editor-save');
+  btn.disabled = true;
+  try {
+    const res = await fetch(e.id ? `/admin/questions/${encodeURIComponent(e.id)}` : '/admin/questions', {
+      method: e.id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, confirmReset: e.voteCount > 0 })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 401) { doLogout(); return; }
+      errEl.textContent = data.error || 'Не удалось сохранить';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    closeEditor();
+    showToast(e.id ? 'Вопрос сохранён' : 'Вопрос добавлен', 'success');
+    loadState();
+  } catch (err) {
+    errEl.textContent = 'Нет связи с сервером';
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteQuestion(id) {
+  const q = appState.questions.find(x => x.id === id);
+  if (!q) return;
+  const short = q.text.length > 80 ? q.text.slice(0, 80) + '…' : q.text;
+  const extra = q.voteCount ? `\n\nОтветы по нему (${q.voteCount}) тоже будут удалены.` : '';
+  if (!confirm(`Удалить вопрос?\n\n«${short}»${extra}`)) return;
+  const res = await fetch(`/admin/questions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { showToast(data.error || 'Не удалось удалить'); return; }
+  showToast('Вопрос удалён', 'success');
+  loadState();
+}
+
+async function moveQuestion(id, dir) {
+  const ids = appState.questions.map(q => q.id);
+  const i = ids.indexOf(id), j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  const res = await fetch('/admin/questions/reorder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { showToast(data.error || 'Не удалось переместить'); }
+  loadState();
+}
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && editor) closeEditor();
+});
+document.getElementById('editor-modal').addEventListener('input', () => {
+  document.getElementById('editor-error').classList.add('hidden');
+});
 
 /* ── Init ───────────────────────────────────────────────────────────────── */
 checkAuth();
